@@ -53,6 +53,7 @@ function __autoload($class_name) {
 require_once(dirname(__FILE__).'/config.php');
 if (!$options->caching) die('Caching is disabled');
 
+/*
 // clean http response cache
 $frontendOptions = array(
    'lifetime' => 30*60, // cache lifetime of 30 minutes
@@ -73,6 +74,7 @@ $backendOptions = array(
 );
 $cache = Zend_Cache::factory('Core', 'File', $frontendOptions, $backendOptions);
 $cache->clean(Zend_Cache::CLEANING_MODE_OLD);
+*/
 
 // clean rss (non-key) cache
 $frontendOptions = array(

@@ -3,8 +3,8 @@
 // Author: Keyvan Minoukadeh
 // Copyright (c) 2011 Keyvan Minoukadeh
 // License: AGPLv3
-// Version: 2.5
-// Date: 2011-01-08
+// Version: 2.6
+// Date: 2011-03-02
 
 /*
 This program is free software: you can redistribute it and/or modify
@@ -43,7 +43,9 @@ function __autoload($class_name) {
 	static $mapping = array(
 		// Include SimplePie for RSS/Atom parsing
 		'SimplePie' => 'simplepie/simplepie.class.php',
-		'SimplePie_Misc' => 'simplepie/simplepie.class.php',		
+		'SimplePie_Misc' => 'simplepie/simplepie.class.php',	
+		'SimplePie_HTTP_Parser' => 'simplepie/simplepie.class.php',
+		'SimplePie_File' => 'simplepie/simplepie.class.php',
 		// Include FeedCreator for RSS/Atom creation
 		'FeedWriter' => 'feedwriter/FeedWriter.php',
 		'FeedItem' => 'feedwriter/FeedItem.php',
@@ -51,6 +53,7 @@ function __autoload($class_name) {
 		'Readability' => 'readability/Readability.php',
 		// Include Humble HTTP Agent to allow parallel requests and response caching
 		'HumbleHttpAgent' => 'humble-http-agent/HumbleHttpAgent.php',
+		'SimplePie_HumbleHttpAgent' => 'humble-http-agent/SimplePie_HumbleHttpAgent.php',
 		// Include IRI class for resolving relative URLs
 		'IRI' => 'iri/iri.php',
 		// Include Zend Cache to improve performance (cache results)
@@ -67,13 +70,31 @@ function __autoload($class_name) {
 	}
 }
 
+function url_allowed($url) {
+	global $options;
+	if (!empty($options->allowed_urls)) {
+		$allowed = false;
+		foreach ($options->allowed_urls as $allowurl) {
+			if (stristr($url, $allowurl) !== false) {
+				$allowed = true;
+				break;
+			}
+		}
+		if (!$allowed) return false;
+	} else {
+		foreach ($options->blocked_urls as $blockurl) {
+			if (stristr($url, $blockurl) !== false) {
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
 ////////////////////////////////
 // Load config file if it exists
 ////////////////////////////////
 require_once(dirname(__FILE__).'/config.php');
-if (file_exists(dirname(__FILE__).'/custom_config.php')) {
-	require_once(dirname(__FILE__).'/custom_config.php');
-}
 
 //////////////////////////////////////////////
 // Convert $html to UTF8
@@ -191,9 +212,16 @@ $url = $_GET['url'];
 if (!preg_match('!^https?://.+!i', $url)) {
 	$url = 'http://'.$url;
 }
-$valid_url = filter_var($url, FILTER_VALIDATE_URL);
-if ($valid_url !== false && $valid_url !== null && preg_match('!^https?://!', $valid_url)) {
-	$url = filter_var($url, FILTER_SANITIZE_URL);
+
+$url = filter_var($url, FILTER_SANITIZE_URL);
+$test = filter_var($url, FILTER_VALIDATE_URL, FILTER_FLAG_SCHEME_REQUIRED);
+// deal with bug http://bugs.php.net/51192 (present in PHP 5.2.13 and PHP 5.3.2)
+if ($test === false) {
+	$test = filter_var(strtr($url, '-', '_'), FILTER_VALIDATE_URL, FILTER_FLAG_SCHEME_REQUIRED);
+}
+if ($test !== false && $test !== null && preg_match('!^https?://!', $url)) {
+	// all okay
+	unset($test);
 } else {
 	die('Invalid URL supplied');
 }
@@ -232,6 +260,16 @@ if (isset($_GET['key']) && ($key_index = array_search($_GET['key'], $options->ap
 }
 
 ///////////////////////////////////////////////
+// Set timezone.
+// Prevents warnings, but needs more testing - 
+// perhaps if timezone is set in php.ini we
+// don't need to set it at all...
+///////////////////////////////////////////////
+if (!ini_get('date.timezone') || !@date_default_timezone_set(ini_get('date.timezone'))) {
+	date_default_timezone_set('UTC');
+}
+
+///////////////////////////////////////////////
 // Check if the request is explicitly for an HTML page
 ///////////////////////////////////////////////
 $html_only = (isset($_GET['html']) && ($_GET['html'] == '1' || $_GET['html'] == 'true'));
@@ -246,25 +284,8 @@ if (isset($_GET['key']) && isset($_GET['hash']) && isset($options->api_keys[(int
 
 ///////////////////////////////////////////////
 // Check URL against list of blacklisted URLs
-// TODO: set up better system for this
 ///////////////////////////////////////////////
-
-if (!empty($options->allowed_urls)) {
-	$allowed = false;
-	foreach ($options->allowed_urls as $allowurl) {
-		if (strstr($url, $allowurl) !== false) {
-			$allowed = true;
-			break;
-		}
-	}
-	if (!$allowed) die('URL not allowed');
-} else {
-	foreach ($options->blocked_urls as $blockurl) {
-		if (strstr($url, $blockurl) !== false) {
-			die('URL blocked');
-		}
-	}
-}
+if (!url_allowed($url)) die('URL blocked');
 
 ///////////////////////////////////////////////
 // Max entries
@@ -441,7 +462,10 @@ if (function_exists('tidy_parse_string')) {
 // Get RSS/Atom feed
 ////////////////////////////////
 if (!$html_only) {
+	// configure SimplePie HTTP extension class to use our HumbleHttpAgent instance
+	SimplePie_HumbleHttpAgent::set_agent($http);
 	$feed = new SimplePie();
+	$feed->set_file_class('SimplePie_HumbleHttpAgent');
 	$feed->set_feed_url($url);
 	$feed->set_autodiscovery_level(SIMPLEPIE_LOCATOR_NONE);
 	$feed->set_timeout(20);
@@ -466,7 +490,10 @@ if ($html_only || !$result) {
 	unset($feed, $result);
 	if ($response = $http->get($url)) {
 		$effective_url = $response['effective_url'];
+		if (!url_allowed($effective_url)) die('URL blocked');
 		$html = $response['body'];
+		// remove strange things here
+		$html = str_replace('</[>', '', $html);
 		$html = convert_to_utf8($html, $response['headers']);	
 	} else {
 		die('Error retrieving '.$url);
@@ -513,7 +540,11 @@ if ($html_only || !$result) {
 		// get outerHTML
 		$content = $content_block->ownerDocument->saveXML($content_block);
 	} else {
-		$content = $content_block->innerHTML;
+		if ($content_block->childNodes->length == 1 && $content_block->firstChild->nodeType === XML_ELEMENT_NODE) {
+			$content = $content_block->firstChild->innerHTML;
+		} else {
+			$content = $content_block->innerHTML;
+		}
 	}
 	if ($links == 'remove') {
 		$content = preg_replace('!</?a[^>]*>!', '', $content);
@@ -586,7 +617,7 @@ foreach ($items as $key => $item) {
 	$urls[$key] = $permalink;
 }
 $http->fetchAll($urls_sanitized);
-$http->cacheAll();
+//$http->cacheAll();
 
 foreach ($items as $key => $item) {
 	$extract_result = false;
@@ -606,9 +637,12 @@ foreach ($items as $key => $item) {
 			$newitem->setLink($item->get_permalink());
 		}
 	}
-	if ($permalink && $response = $http->get($permalink)) {
+	if ($permalink && $response = $http->get($permalink, true)) {
 		$effective_url = $response['effective_url'];
+		if (!url_allowed($effective_url)) continue;
 		$html = $response['body'];
+		// remove strange things here
+		$html = str_replace('</[>', '', $html);		
 		$html = convert_to_utf8($html, $response['headers']);
 		if ($auto_extract) {
 			// Run through Tidy (if it exists).
@@ -661,7 +695,11 @@ foreach ($items as $key => $item) {
 			// get outerHTML
 			$html = $content_block->ownerDocument->saveXML($content_block);
 		} else {
-			$html = $content_block->innerHTML;
+			if ($content_block->childNodes->length == 1 && $content_block->firstChild->nodeType === XML_ELEMENT_NODE) {
+				$html = $content_block->firstChild->innerHTML;
+			} else {
+				$html = $content_block->innerHTML;
+			}
 		}
 		// post-processing cleanup
 		$html = preg_replace('!<p>[\s\h\v]*</p>!u', '', $html);

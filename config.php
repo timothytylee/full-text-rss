@@ -1,10 +1,15 @@
 <?php
 /* Full-Text RSS config */
 
+// ......IMPORTANT......................................
+// .....................................................
 // Please do not change this file (config.php) directly.
 // Save a copy as custom_config.php and make your
 // changes to that instead. It will automatically
-// override anything in config.php.
+// override anything in config.php. Because config.php
+// always gets loaded anyway, you can simply specify
+// options you'd like to override in custom_config.php.
+// .....................................................
 
 // Enable service
 // ----------------------
@@ -27,8 +32,6 @@ $options->max_entries = 10;
 // ----------------------
 // With this enabled relative URLs found in the extracted content
 // block are automatically rewritten as absolute URLs.
-// Set to false if you want to preserve relative URLs appearing in 
-// the extracted content block.
 $options->rewrite_relative_urls = true;
 
 // Exclude items if extraction fails
@@ -128,8 +131,8 @@ $options->cache_cleanup = 100;
 
 /////////////////////////////////////////////////
 /// DEPRECATED OPTIONS
-/// THESE OPTIONS WILL CHANGE IN THE NEXT 
-/// VERSION, WE RECOMMEND YOU DO NOT USE THEM
+/// THESE OPTIONS WILL CHANGE IN VERSION 3.0
+/// WE RECOMMEND YOU DO NOT USE THEM
 /////////////////////////////////////////////////
 
 // Restrict service (deprecated)
@@ -182,6 +185,8 @@ $options->error_message_with_key = '[unable to retrieve full-text content]';
 /// DO NOT CHANGE ANYTHING BELOW THIS ///////////
 /////////////////////////////////////////////////
 
-if (!defined('_FF_FTR_VERSION')) define('_FF_FTR_VERSION', '2.5');
+if (!defined('_FF_FTR_VERSION')) define('_FF_FTR_VERSION', '2.6');
 
-?>
+if ((basename(__FILE__) == 'config.php') && (file_exists(dirname(__FILE__).'/custom_config.php'))) {
+	require_once(dirname(__FILE__).'/custom_config.php');
+}

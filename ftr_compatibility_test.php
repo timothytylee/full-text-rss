@@ -13,20 +13,7 @@ SimplePie.org. We have kept most of their checks intact as we use SimplePie in o
 http://github.com/simplepie/simplepie/tree/master/compatibility_test/
 */
 
-$app_name = 'Full-Text RSS v2';
-
-// test redirect
-$url = parse_url('http://'.$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI']);
-$redirect_url = 'http://'.$url['host'].$url['path'].'?redirect=true';
-if (isset($_GET['redirect'])) {
-	$url = parse_url('http://'.$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI']);
-	$url = 'http://'.$url['host'].$url['path'].'?redirected=true';
-	header('Location: '.$url);
-	exit;
-}
-if (isset($_GET['redirected'])) {
-	die('Redirect works');
-}
+$app_name = 'Full-Text RSS 2.6';
 
 $php_ok = (function_exists('version_compare') && version_compare(phpversion(), '5.2.0', '>='));
 $pcre_ok = extension_loaded('pcre');
@@ -35,9 +22,8 @@ $mbstring_ok = extension_loaded('mbstring');
 $iconv_ok = extension_loaded('iconv');
 $tidy_ok = function_exists('tidy_parse_string');
 $curl_ok = function_exists('curl_exec');
-$http_ok = (extension_loaded('http') && class_exists('HttpRequestPool'));
+$parallel_ok = ((extension_loaded('http') && class_exists('HttpRequestPool')) || ($curl_ok && function_exists('curl_multi_init')));
 $allow_url_fopen_ok = (bool)ini_get('allow_url_fopen');
-$redirect_ok = ($allow_url_fopen_ok && file_get_contents($redirect_url) == 'Redirect works');
 
 if (extension_loaded('xmlreader')) {
 	$xml_ok = true;
@@ -241,21 +227,16 @@ div.chunk {
 						<td>Enabled</td>
 						<td><?php echo (extension_loaded('curl')) ? 'Enabled' : 'Disabled'; ?></td>
 					</tr>
-					<tr class="<?php echo ($http_ok) ? 'enabled' : 'disabled'; ?>">
-						<td><a href="http://php.net/HttpRequestPool">HttpRequestPool</a></td>
+					<tr class="<?php echo ($parallel_ok) ? 'enabled' : 'disabled'; ?>">
+						<td>Parallel URL fetching</td>
 						<td>Enabled</td>
-						<td><?php echo ($http_ok) ? 'Enabled' : 'Disabled'; ?></td>
+						<td><?php echo ($parallel_ok) ? 'Enabled' : 'Disabled'; ?></td>
 					</tr>
 					<tr class="<?php echo ($allow_url_fopen_ok) ? 'enabled' : 'disabled'; ?>">
 						<td><a href="http://www.php.net/manual/en/filesystem.configuration.php#ini.allow-url-fopen">allow_url_fopen</a></td>
 						<td>Enabled</td>
 						<td><?php echo ($allow_url_fopen_ok) ? 'Enabled' : 'Disabled'; ?></td>
 					</tr>						
-					<tr class="<?php echo ($redirect_ok) ? 'enabled' : 'disabled'; ?>">
-						<td>HTTP Redirects</td>
-						<td>Enabled</td>
-						<td><?php echo ($redirect_ok) ? 'Enabled' : 'Disabled'; ?></td>
-					</tr>	
 				</tbody>
 			</table>
 		</div>
@@ -263,7 +244,7 @@ div.chunk {
 		<div class="chunk">
 			<h3>What does this mean?</h3>
 			<ol>
-				<?php if ($php_ok && $xml_ok && $pcre_ok && $mbstring_ok && $iconv_ok && $zlib_ok && $tidy_ok && $curl_ok && $http_ok && $allow_url_fopen_ok && $redirect_ok): ?>
+				<?php if ($php_ok && $xml_ok && $pcre_ok && $mbstring_ok && $iconv_ok && $zlib_ok && $tidy_ok && $curl_ok && $parallel_ok && $allow_url_fopen_ok): ?>
 				<li><em>You have everything you need to run <?php echo $app_name; ?> properly!  Congratulations!</em></li>
 				<?php else: ?>
 					<?php if ($php_ok): ?>
@@ -304,18 +285,12 @@ div.chunk {
 										<li><strong>cURL:</strong> The <code>cURL</code> extension is not available.  SimplePie will use <code>fsockopen()</code> instead.</li>
 									<?php endif; ?>
 		
-									<?php if ($http_ok): ?>
-										<li><strong>HttpRequestPool:</strong> You have <code>HttpRequestPool</code> support installed.  <em>No problems here.</em></li>
+									<?php if ($parallel_ok): ?>
+										<li><strong>Parallel URL fetching:</strong> You have <code>HttpRequestPool</code> or <code>curl_multi</code> support installed.  <em>No problems here.</em></li>
 									<?php else: ?>
-										<li><strong>HttpRequestPool:</strong> The <code>HttpRequestPool</code> class is not available.  <?php echo $app_name; ?> will use <code>file_get_contents()</code> instead to fetch URLs sequentially rather than in parallel.</li>
+										<li><strong>Parallel URL fetching:</strong> <code>HttpRequestPool</code> or <code>curl_multi</code> support is not available.  <?php echo $app_name; ?> will use <code>file_get_contents()</code> instead to fetch URLs sequentially rather than in parallel.</li>
 									<?php endif; ?>
 									
-									<?php if ($redirect_ok): ?>
-										<li><strong>HTTP Redirects:</strong> Your server appears to handle redirects ok. <em>No problems here.</em></li>
-									<?php else: ?>
-										<li><strong>HTTP Redirects:</strong> Your server appears not to be able to handle HTTP redirects. <?php echo $app_name; ?> should still work with most feeds, but you may experience problems with some.</li>
-									<?php endif; ?>	
-
 								<?php else: ?>
 									<li><strong>allow_url_fopen:</strong> Your PHP configuration has allow_url_fopen disabled.  <em><?php echo $app_name; ?> will not work here.</em></li>
 								<?php endif; ?>

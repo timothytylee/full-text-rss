@@ -2,6 +2,16 @@ FiveFilters.org: Full-Text RSS
 http://fivefilters.org/content-only/
 CHANGELOG
 ------------------------------------
+2.6 (2011-03-02)
+ - Rewriting of hash-bang (#!) URLs (see http://www.tbray.org/ongoing/When/201x/2011/02/09/Hash-Blecch for an explanation)
+ - Improved parallel fetching support (HumbleHttpAgent uses curl_multi_* functions if PECL HTTP extension is not present)
+ - Improved HTTP redirect support (now handled in HumbleHttpAgent, no longer relies on PHP)
+ - Improved performance for single page (non-feed) requests: (SimplePie connected to HumbleHttpAgent)
+ - Improved memory use for processing large feeds (HumbleHttpAgent's stored responses cleared as they're retrieved)
+ - Bug fix: exclude on fail option no longer requires valid key
+ - Bug fix: workaround for PHP bug http://bugs.php.net/51192 (fixed in makefulltextfeed.php)
+ - Plus other minor changes...
+
 2.5 (2011-01-08)
  - New option: custom extraction pattern (CSS selectors)
  - New option: allowed URLs (restrict service to pre-defined feeds/domains)

@@ -135,18 +135,13 @@ if (!defined('_FF_FTR_INDEX')) {
 	Then whenever you'd like a full-text feed, click the bookmarklet.</p>
 	<p>Drag this: 
 	<script type="text/javascript">
-	document.write('<a style="cursor: move;" onclick="alert(\'drag to bookmarks toolbar\'); return false;" href="javascript:location.href=\''+baseUrl+'/makefulltextfeed.php?url=\'+escape(document.location.href);">Full-Text RSS</a>');
+	document.write('<a style="cursor: move;" onclick="alert(\'drag to bookmarks toolbar\'); return false;" href="javascript:location.href=\''+baseUrl+'/makefulltextfeed.php?url=\'+encodeURIComponent(document.location.href);">Full-Text RSS</a>');
 	</script>
 	
 	<h3 id="api">API</h3>
 	<p>To extract content from a web page or to transform an existing partial feed to full text, pass the URL (<a href="http://meyerweb.com/eric/tools/dencoder/">encoded</a>) in the querystring to the following URL:</p>
 	<ul>
 		<li style="font-family: monospace;"><script type="text/javascript">document.write(baseUrl);</script>/makefulltextfeed.php?url=<strong>[url]</strong></li>
-	</ul>
-	<p>If you have an API key, add that to the querystring:</p>
-	<ul>
-		<li style="font-family: monospace; white-space:nowrap;"><script type="text/javascript">document.write(baseUrl);</script>/makefulltextfeed.php?key=<strong>[key]</strong>&amp;url=<strong>[url]</strong></li>
-		<li style="font-family: monospace; white-space:nowrap;"><script type="text/javascript">document.write(baseUrl);</script>/makefulltextfeed.php?key=<strong>[key]</strong>&amp;max=<strong>[number of feed items]</strong>&amp;url=<strong>[url]</strong></li>
 	</ul>
 	
 	<p>All the parameters in the form above can be passed in this way. Examine the URL in the addressbar after you click 'Create Feed' to see the values.</p>
@@ -155,26 +150,27 @@ if (!defined('_FF_FTR_INDEX')) {
 	project licensed under the AGPL. You're free to <a href="http://fivefilters.org/content-only/#download">download your own copy</a>.</p>
 	
 	<h3>Source Code and Technologies</h3>
-	<p><p>The application uses <a href="http://en.wikipedia.org/wiki/PHP">PHP</a>, <a href="http://www.keyvan.net/2010/08/php-readability/">PHP Readability</a>, <a href="http://simplepie.org/">SimplePie</a>, <a href="http://www.ajaxray.com/blog/2008/03/08/php-universal-feed-generator-supports-rss-10-rss-20-and-atom/">FeedWriter</a>, Humble HTTP Agent. Depending on configuration, these optional components may also be used: <a href="http://framework.zend.com/manual/en/zend.cache.introduction.html">Zend Cache</a>, <a href="http://framework.zend.com/manual/en/zend.dom.query.html">Zend DOM Query</a> and <a href="http://hg.gsnedders.com/iri/">IRI</a>. Readability is the magic piece of code that tries to identify and extract the content block from any given web page.</p>
+	<p><p>The application uses <a href="http://en.wikipedia.org/wiki/PHP">PHP</a>, <a href="http://www.keyvan.net/2010/08/php-readability/">PHP Readability</a>, <a href="http://simplepie.org/">SimplePie</a>, <a href="http://www.ajaxray.com/blog/2008/03/08/php-universal-feed-generator-supports-rss-10-rss-20-and-atom/">FeedWriter</a>, Humble HTTP Agent. Depending on your configuration, these optional components may also be used: <a href="http://framework.zend.com/manual/en/zend.cache.introduction.html">Zend Cache</a>, <a href="http://framework.zend.com/manual/en/zend.dom.query.html">Zend DOM Query</a>, <a href="http://code.google.com/p/rolling-curl/">Rolling Curl</a> and <a href="http://hg.gsnedders.com/iri/">IRI</a>. Readability is the magic piece of code that tries to identify and extract the content block from any given web page.</p>
 
 	<h3>System Requirements</h3>
 	
 	<p>PHP 5.2 or above is required. A simple shared web hosting account will work fine.
-	The code has been tested on Windows and Linux using the Apache web server. If you're a Windows user, you can try it on your own machine using <a href="http://www.wampserver.com/en/index.php">WampServer</a>.</p>
+	The code has been tested on Windows and Linux using the Apache web server. If you're a Windows user, you can try it on your own machine using <a href="http://www.wampserver.com/en/index.php">WampServer</a>. It has also been reported as working under IIS, but we have not tested this ourselves.</p>
 	
 	<h3 id="download">Download</h3>
 	<p>Download from <a href="http://fivefilters.org/content-only/#download">fivefilters.org</a> - old versions are available in the code repository.</p>
 	
 	<h3>License</h3>
-	<p><a href="http://en.wikipedia.org/wiki/Affero_General_Public_License" style="border-bottom: none;"><img src="images/agplv3.png" alt="AGPL logo" /></a><br />This web application is licensed under the <a href="http://en.wikipedia.org/wiki/Affero_General_Public_License">AGPL version 3</a> &mdash; which basically means if you use the code to offer the same or similar service for your users, you are also required to share the code with your users so they can run it for themselves. (<a href="http://www.clipperz.com/users/marco/blog/2008/05/30/freedom_and_privacy_cloud_call_action">More on why this is important.</a>)</p> 
+	<p><a href="http://en.wikipedia.org/wiki/Affero_General_Public_License" style="border-bottom: none;"><img src="images/agplv3.png" alt="AGPL logo" /></a><br />This web application is licensed under the <a href="http://en.wikipedia.org/wiki/Affero_General_Public_License">AGPL version 3</a> &mdash; which basically means if you use the code to offer the same or similar service for your users, you are also required to share the code with your users so they can examine the code and run it for themselves. (<a href="http://www.clipperz.com/users/marco/blog/2008/05/30/freedom_and_privacy_cloud_call_action">More on why this is important.</a>)</p> 
 	<p>The libraries used by the application are licensed as follows...</p>
 	<ul>
-		<li>Readability: <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License v2</a></li>
+		<li>PHP Readability: <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License v2</a></li>
 		<li>SimplePie: <a href="http://en.wikipedia.org/wiki/BSD_license">BSD</a></li>
 		<li>FeedWriter: <a href="http://www.gnu.org/licenses/old-licenses/gpl-2.0.html">GPL v2</a></li>
 		<li>Humble HTTP Agent: <a href="http://en.wikipedia.org/wiki/Affero_General_Public_License">AGPL v3</a></li>
 		<li>Zend: <a href="http://framework.zend.com/license/new-bsd">New BSD</a></li>
-		<li>IRI: <a href="http://en.wikipedia.org/wiki/BSD_license">BSD</a></li>		
+		<li>IRI: <a href="http://en.wikipedia.org/wiki/BSD_license">BSD</a></li>
+		<li>Rolling Curl: <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License v2</a></li>		
 	</ul>
 	
 	</div>

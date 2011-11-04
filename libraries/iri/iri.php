@@ -1086,7 +1086,7 @@ class IRI
         {
             $iri .= '//' . $iauthority;
         }
-        $iri .= $this->ipath;
+        $iri .= ($this->ipath) ? $this->ipath : '/';
         if ($this->iquery !== null)
         {
             $iri .= '?' . $this->iquery;
