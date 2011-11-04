@@ -1,9 +1,5 @@
 <?php
 require_once(dirname(__FILE__).'/config.php');
-// check for custom config.php (custom_config.php)
-if (file_exists(dirname(__FILE__).'/custom_config.php')) {
-	require_once(dirname(__FILE__).'/custom_config.php');
-}
 // check for custom index.php (custom_index.php)
 if (!defined('_FF_FTR_INDEX')) {
 	define('_FF_FTR_INDEX', true);
@@ -26,7 +22,7 @@ if (!defined('_FF_FTR_INDEX')) {
 	<!--<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.4/jquery.min.js"></script>-->
 	<script type="text/javascript" src="js/jquery-1.4.4.min.js"></script>
 	<script type="text/javascript">
-	var baseUrl = 'http://'+window.location.host+window.location.pathname.replace(/(\/index\.html|\/)$/, '');
+	var baseUrl = 'http://'+window.location.host+window.location.pathname.replace(/(\/index\.php|\/)$/, '');
 	$(document).ready(function() {
 		$('#form').submit(function() {
 			$('#url').val($('#url').val().replace(/^http:\/\//i, ''));
@@ -102,6 +98,7 @@ if (!defined('_FF_FTR_INDEX')) {
 	<h3>Configure</h3>
 	<p>In addition to the options above, Full-Text RSS comes with a configuration file which allows you to control how the application works. Features include:</p>
 	<ul>
+		<li>Site patterns for better control over extraction (<a href="site_config/README.txt">more info</a>)</li>
 		<li>Restrict access to a pre-defined set of URLs or block certain URLs</li>
 		<li>Restrict the maximum number of feed items to be processed</li>
 		<li>Prepend or append an HTML fragment to each feed item processed</li>

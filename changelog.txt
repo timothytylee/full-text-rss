@@ -2,6 +2,16 @@ FiveFilters.org: Full-Text RSS
 http://fivefilters.org/content-only/
 CHANGELOG
 ------------------------------------
+2.7 (2011-03-21)
+ - Site patterns for better control over extraction (see site_config/README.txt)
+ - hNews support (improves content extraction for sites using hNews microformatting)
+ - Cookie Jar now used to store and sends cookies when following HTTP redirects
+ - Better handling of certain cases where HTML Tidy fails to clean up properly
+ - Bug fix: curl_multi_select() timing out in certain environments (fixed in HumbleHttpAgent.php)
+ - Bug fix: broken HTTP header parsing in some environments (fixed in SimplePie_HumbleHttpAgent.php)
+ - Bug fix: invalid API URL shown (fixed in index.php)
+ - Plus other minor fixes...
+
 2.6 (2011-03-02)
  - Rewriting of hash-bang (#!) URLs (see http://www.tbray.org/ongoing/When/201x/2011/02/09/Hash-Blecch for an explanation)
  - Improved parallel fetching support (HumbleHttpAgent uses curl_multi_* functions if PECL HTTP extension is not present)

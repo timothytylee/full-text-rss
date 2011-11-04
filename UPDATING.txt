@@ -9,7 +9,7 @@ To update your copy of Full-Text RSS to ensure feeds continue to be processed as
 
 3. FTP the new folder up to your server
 
-4. Access index.php in the new folder through your browser -- for example http://my-host.com/full-text-rss-updated/index.php
+4. Access index.php in the new folder through your browser -- for example http://example.org/full-text-rss-updated/index.php
 
 5. Enter a URL in the form field to test the updated code
 

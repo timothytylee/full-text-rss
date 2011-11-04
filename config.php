@@ -11,6 +11,9 @@
 // options you'd like to override in custom_config.php.
 // .....................................................
 
+// Create config object
+$options = new stdClass();
+
 // Enable service
 // ----------------------
 // Set this to false if you want to disable the service.
@@ -185,7 +188,7 @@ $options->error_message_with_key = '[unable to retrieve full-text content]';
 /// DO NOT CHANGE ANYTHING BELOW THIS ///////////
 /////////////////////////////////////////////////
 
-if (!defined('_FF_FTR_VERSION')) define('_FF_FTR_VERSION', '2.6');
+if (!defined('_FF_FTR_VERSION')) define('_FF_FTR_VERSION', '2.7');
 
 if ((basename(__FILE__) == 'config.php') && (file_exists(dirname(__FILE__).'/custom_config.php'))) {
 	require_once(dirname(__FILE__).'/custom_config.php');

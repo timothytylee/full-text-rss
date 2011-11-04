@@ -57,7 +57,10 @@ class SimplePie_HumbleHttpAgent extends SimplePie_File
 				$this->error = 'failed to fetch URL';
 				$this->success = false;
 			} else {
-				$parser = new SimplePie_HTTP_Parser($response['headers']);
+				// The extra lines at the end are there to satisfy SimplePie's HTTP parser.
+				// The class expects a full HTTP message, whereas we're giving it only
+				// headers - the new lines indicate the start of the body.
+				$parser = new SimplePie_HTTP_Parser($response['headers']."\r\n\r\n");
 				if ($parser->parse()) {
 					$this->headers = $parser->headers;
 					//$this->body = $parser->body;

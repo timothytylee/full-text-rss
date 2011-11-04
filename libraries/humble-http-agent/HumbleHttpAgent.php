@@ -30,6 +30,7 @@ class HumbleHttpAgent
 	protected $minimiseMemoryUse = false; //TODO
 	protected $debug = false;
 	protected $method;
+	protected $cookieJar;
 	public $rewriteHashbangFragment = true; // see http://code.google.com/web/ajaxcrawling/docs/specification.html
 	public $maxRedirects = 5;
 	
@@ -53,6 +54,9 @@ class HumbleHttpAgent
 		if ($this->method == self::METHOD_CURL_MULTI) {
 			require_once(dirname(__FILE__).'/RollingCurl.php');
 		}
+		// create cookie jar
+		$this->cookieJar = new CookieJar();
+		// set request options (redirect must be 0)
 		$this->requestOptions = array(
 			'timeout' => 10,
 			'redirect' => 0 // we handle redirects manually so we can rewrite the new hashbang URLs that are creeping up over the web
@@ -61,7 +65,7 @@ class HumbleHttpAgent
 		if (is_array($requestOptions)) {
 			$this->requestOptions = array_merge($this->requestOptions, $requestOptions);
 		}
-		$this->httpContext = stream_context_create(array(
+		$this->httpContext = array(
 			'http' => array(
 				'ignore_errors' => true,
 				'timeout' => $this->requestOptions['timeout'],
@@ -69,8 +73,7 @@ class HumbleHttpAgent
 				'header' => "User-Agent: PHP/".phpversion()."\r\n".
 							"Accept: */*\r\n"
 				)
-			)
-		);
+			);
 	}
 	
 	protected function debug($msg) {
@@ -207,8 +210,13 @@ class HumbleHttpAgent
 						*/
 						} else {
 							$this->debug("......adding to pool");
-							$req_url = ($this->rewriteHashbangFragment) ? $this->rewriteHashbangFragment($url) : $url;							
+							$req_url = ($this->rewriteHashbangFragment) ? $this->rewriteHashbangFragment($url) : $url;
 							$httpRequest = new HttpRequest($req_url, HttpRequest::METH_GET, $this->requestOptions);
+							// send cookies, if we have any
+							if ($cookies = $this->cookieJar->getMatchingCookies($req_url)) {
+								$this->debug("......sending cookies: $cookies");
+								$httpRequest->addHeaders(array('Cookie' => $cookies));
+							}
 							$this->requests[$orig] = array('headers'=>null, 'body'=>null, 'httpRequest'=>$httpRequest);
 							$this->requests[$orig]['original_url'] = $orig;
 							$pool->attach($httpRequest);
@@ -229,11 +237,16 @@ class HumbleHttpAgent
 								$this->requests[$orig]['body'] = $request->getResponseBody();
 								$this->requests[$orig]['effective_url'] = $request->getResponseInfo('effective_url');
 								$this->requests[$orig]['status_code'] = $status_code = $request->getResponseCode();
+								// is redirect?
 								if ((in_array($status_code, array(300, 301, 302, 303, 307)) || $status_code > 307 && $status_code < 400) && $request->getResponseHeader('location')) {
 									$redirectURL = $request->getResponseHeader('location');
 									$redirectURL = SimplePie_Misc::absolutize_url($redirectURL, $url);
 									if ($this->validateURL($redirectURL)) {
 										$this->debug('Redirect detected. Valid URL: '.$redirectURL);
+										// store any cookies
+										$cookies = $request->getResponseHeader('set-cookie');
+										if ($cookies && !is_array($cookies)) $cookies = array($cookies);
+										if ($cookies) $this->cookieJar->storeCookies($url, $cookies);
 										$this->redirectQueue[$orig] = $redirectURL;
 									} else {
 										$this->debug('Redirect detected. Invalid URL: '.$redirectURL);
@@ -285,8 +298,13 @@ class HumbleHttpAgent
 					} else {
 						$this->debug("......adding to pool");
 						$req_url = ($this->rewriteHashbangFragment) ? $this->rewriteHashbangFragment($url) : $url;
-
-						$httpRequest = new RollingCurlRequest($req_url, 'GET', null, null, array(
+						$headers = array();
+						// send cookies, if we have any
+						if ($cookies = $this->cookieJar->getMatchingCookies($req_url)) {
+							$this->debug("......sending cookies: $cookies");
+							$headers[] = 'Cookie: '.$cookies;
+						}
+						$httpRequest = new RollingCurlRequest($req_url, 'GET', null, $headers, array(
 							CURLOPT_CONNECTTIMEOUT => $this->requestOptions['timeout'],
 							CURLOPT_TIMEOUT => $this->requestOptions['timeout']
 							));
@@ -312,7 +330,10 @@ class HumbleHttpAgent
 							$redirectURL = SimplePie_Misc::absolutize_url($redirectURL, $url);
 							if ($this->validateURL($redirectURL)) {
 								$this->debug('Redirect detected. Valid URL: '.$redirectURL);
-								$this->redirectQueue[$orig] = $redirectURL;										
+								// store any cookies
+								$cookies = $this->cookieJar->extractCookies($this->requests[$orig]['headers']);
+								if (!empty($cookies)) $this->cookieJar->storeCookies($url, $cookies);							
+								$this->redirectQueue[$orig] = $redirectURL;
 							} else {
 								$this->debug('Redirect detected. Invalid URL: '.$redirectURL);
 							}
@@ -346,7 +367,13 @@ class HumbleHttpAgent
 					$this->debug("Sending request for $url");
 					$this->requests[$orig]['original_url'] = $orig;					
 					$req_url = ($this->rewriteHashbangFragment) ? $this->rewriteHashbangFragment($url) : $url;
-					if (false !== ($html = @file_get_contents($req_url, false, $this->httpContext))) {
+					// send cookies, if we have any
+					$httpContext = $this->httpContext;
+					if ($cookies = $this->cookieJar->getMatchingCookies($req_url)) {
+						$this->debug("......sending cookies: $cookies");
+						$httpContext['http']['header'] .= 'Cookie: '.$cookies."\r\n";
+					}
+					if (false !== ($html = @file_get_contents($req_url, false, stream_context_create($httpContext)))) {
 						$this->debug('Received response');
 						// get status code
 						if (!isset($http_response_header[0]) || !preg_match('!^HTTP/\d+\.\d+\s+(\d+)!', trim($http_response_header[0]), $match)) {
@@ -367,7 +394,10 @@ class HumbleHttpAgent
 								$redirectURL = SimplePie_Misc::absolutize_url($redirectURL, $url);
 								if ($this->validateURL($redirectURL)) {
 									$this->debug('Redirect detected. Valid URL: '.$redirectURL);
-									$this->redirectQueue[$orig] = $redirectURL;										
+									// store any cookies
+									$cookies = $this->cookieJar->extractCookies($this->requests[$orig]['headers']);
+									if (!empty($cookies)) $this->cookieJar->storeCookies($url, $cookies);
+									$this->redirectQueue[$orig] = $redirectURL;
 								} else {
 									$this->debug('Redirect detected. Invalid URL: '.$redirectURL);
 								}

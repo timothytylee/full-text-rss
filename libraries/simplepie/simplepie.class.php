@@ -9846,7 +9846,7 @@ class SimplePie_Misc
 			case 'ksc56011987':
 			case 'ksc56011989':
 			case 'windows949':
-				return 'windows-949';
+				return 'EUC-KR';
 
 			case 'windows1250':
 				return 'windows-1250';

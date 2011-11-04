@@ -3,8 +3,8 @@
 // Author: Keyvan Minoukadeh
 // Copyright (c) 2011 Keyvan Minoukadeh
 // License: AGPLv3
-// Version: 2.6
-// Date: 2011-03-02
+// Version: 2.7
+// Date: 2011-03-21
 
 /*
 This program is free software: you can redistribute it and/or modify
@@ -49,11 +49,14 @@ function __autoload($class_name) {
 		// Include FeedCreator for RSS/Atom creation
 		'FeedWriter' => 'feedwriter/FeedWriter.php',
 		'FeedItem' => 'feedwriter/FeedItem.php',
-		// Include Readability for identifying and extracting content from URLs
+		// Include ContentExtractor and Readability for identifying and extracting content from URLs
+		'ContentExtractor' => 'content-extractor/ContentExtractor.php',
+		'SiteConfig' => 'content-extractor/SiteConfig.php',
 		'Readability' => 'readability/Readability.php',
 		// Include Humble HTTP Agent to allow parallel requests and response caching
 		'HumbleHttpAgent' => 'humble-http-agent/HumbleHttpAgent.php',
 		'SimplePie_HumbleHttpAgent' => 'humble-http-agent/SimplePie_HumbleHttpAgent.php',
+		'CookieJar' => 'humble-http-agent/CookieJar.php',
 		// Include IRI class for resolving relative URLs
 		'IRI' => 'iri/iri.php',
 		// Include Zend Cache to improve performance (cache results)
@@ -413,6 +416,11 @@ if ($valid_key) {
 //////////////////////////////////
 $http = new HumbleHttpAgent();
 
+//////////////////////////////////
+// Set up Content Extractor
+//////////////////////////////////
+$extractor = new ContentExtractor(dirname(__FILE__).'/site_config/custom', new ContentExtractor(dirname(__FILE__).'/site_config/standard'));
+
 /*
 if ($options->caching) {
 	$frontendOptions = array(
@@ -436,27 +444,6 @@ if ($options->caching) {
 	$http->useCache($httpCache);
 }
 */
-
-////////////////////////////////
-// Tidy config
-////////////////////////////////
-if (function_exists('tidy_parse_string')) {
-	$tidy_config = array(
-		 'clean' => true,
-		 'output-xhtml' => true,
-		 'logical-emphasis' => true,
-		 'show-body-only' => false,
-		 'wrap' => 0,
-		 'drop-empty-paras' => true,
-		 'drop-proprietary-attributes' => false,
-		 'enclose-text' => true,
-		 'enclose-block-text' => true,
-		 'merge-divs' => true,
-		 'merge-spans' => true,
-		 'char-encoding' => 'utf8',
-		 'hide-comments' => true
-	);			
-}
 
 ////////////////////////////////
 // Get RSS/Atom feed
@@ -495,28 +482,22 @@ if ($html_only || !$result) {
 		// remove strange things here
 		$html = str_replace('</[>', '', $html);
 		$html = convert_to_utf8($html, $response['headers']);	
-	} else {
+	}
+	if (!$response || $response['status_code'] >= 300) {
 		die('Error retrieving '.$url);
 	}
 	if ($auto_extract) {
-		// Run through Tidy (if it exists).
-		// This fixes problems with some sites which would otherwise
-		// trouble DOMDocument's HTML parsing.
-		if (function_exists('tidy_parse_string')) {
-			$tidy = tidy_parse_string($html, $tidy_config, 'UTF8');
-			if (tidy_clean_repair($tidy)) {
-				$html = $tidy->value;
-			}
-		}
-		$readability = new Readability($html, $effective_url);
-		if ($links == 'footnotes') $readability->convertLinksToFootnotes = true;
-		if (!$readability->init() && $exclude_on_fail) die('Sorry, could not extract content');
-		// content block is detected element
-		$content_block = $readability->getContent();
+		$extract_result = $extractor->process($html, $effective_url);
+		if (!$extract_result) die($options->error_message);
+		$readability = $extractor->readability;
+		$content_block = $extractor->getContent();	
+		$title = $extractor->getTitle();
 	} else {
 		$readability = new Readability($html, $effective_url);
 		// content block is entire document
 		$content_block = $readability->dom;
+		//TODO: get title
+		$title = '';
 	}
 	if ($extract_pattern) {
 		$xpath = new DOMXPath($readability->dom);
@@ -529,13 +510,16 @@ if ($html_only || !$result) {
 			$readability->removeScripts($content_block);
 			$readability->prepArticle($content_block);
 		} else {
-			if ($exclude_on_fail) die('Sorry, could not extract content');
-			$content_block = $readability->dom->createElement('p', 'Sorry, could not extract content');
+			die($options->error_message);
+			//$content_block = $readability->dom->createElement('p', 'Sorry, could not extract content');
 		}
 	}
 	$readability->clean($content_block, 'select');
 	if ($options->rewrite_relative_urls) makeAbsolute($effective_url, $content_block);
-	$title = $readability->getTitle()->textContent;
+	// footnotes
+	if (($links == 'footnotes') && (strpos($effective_url, 'wikipedia.org') === false)) {
+		$readability->addFootnotes($content_block);
+	}
 	if ($extract_pattern) {
 		// get outerHTML
 		$content = $content_block->ownerDocument->saveXML($content_block);
@@ -637,7 +621,7 @@ foreach ($items as $key => $item) {
 			$newitem->setLink($item->get_permalink());
 		}
 	}
-	if ($permalink && $response = $http->get($permalink, true)) {
+	if ($permalink && ($response = $http->get($permalink, true)) && $response['status_code'] < 300) {
 		$effective_url = $response['effective_url'];
 		if (!url_allowed($effective_url)) continue;
 		$html = $response['body'];
@@ -645,26 +629,15 @@ foreach ($items as $key => $item) {
 		$html = str_replace('</[>', '', $html);		
 		$html = convert_to_utf8($html, $response['headers']);
 		if ($auto_extract) {
-			// Run through Tidy (if it exists).
-			// This fixes problems with some sites which would otherwise
-			// trouble DOMDocument's HTML parsing. (Although sometimes it fails
-			// to return anything, so it's a bit of tradeoff.)
-			if (function_exists('tidy_parse_string')) {
-				$tidy = tidy_parse_string($html, $tidy_config, 'UTF8');
-				$tidy->cleanRepair();
-				$html = $tidy->value;
-			}		
-			$readability = new Readability($html, $effective_url);
-			if ($links == 'footnotes') $readability->convertLinksToFootnotes = true;
-			$extract_result = $readability->init();
-			// content block is detected element
-			$content_block = $readability->getContent();
+			$extract_result = $extractor->process($html, $effective_url);
+			$readability = $extractor->readability;
+			$content_block = ($extract_result) ? $extractor->getContent() : null;
 		} else {
 			$readability = new Readability($html, $effective_url);
 			// content block is entire document (for now...)
 			$content_block = $readability->dom;			
 		}
-		if ($extract_pattern) {
+		if ($extract_pattern && isset($content_block)) {
 			$xpath = new DOMXPath($readability->dom);
 			$elems = @$xpath->query($extract_pattern, $content_block);
 			// check if our custom extraction pattern matched
@@ -691,6 +664,10 @@ foreach ($items as $key => $item) {
 	} else {
 		$readability->clean($content_block, 'select');
 		if ($options->rewrite_relative_urls) makeAbsolute($effective_url, $content_block);
+		// footnotes
+		if (($links == 'footnotes') && (strpos($effective_url, 'wikipedia.org') === false)) {
+			$readability->addFootnotes($content_block);
+		}
 		if ($extract_pattern) {
 			// get outerHTML
 			$html = $content_block->ownerDocument->saveXML($content_block);
@@ -712,7 +689,7 @@ foreach ($items as $key => $item) {
 		} else {
 			$html = $options->message_to_prepend_with_key.$html;	
 			$html .= $options->message_to_append_with_key;
-		}	
+		}
 	}
 	if ($format == 'atom') {
 		$newitem->addElement('content', $html);

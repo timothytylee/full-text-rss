@@ -109,13 +109,13 @@ class Readability
 	function __construct($html, $url=null)
 	{
 		/* Turn all double br's into p's */
-		/* Note, this is pretty costly as far as processing goes. Maybe optimize later. */
 		$html = preg_replace($this->regexps['replaceBrs'], '</p><p>', $html);
 		$html = preg_replace($this->regexps['replaceFonts'], '<$1span>', $html);
 		$html = mb_convert_encoding($html, 'HTML-ENTITIES', "UTF-8");
 		$this->dom = new DOMDocument();
 		$this->dom->preserveWhiteSpace = false;
 		$this->dom->registerNodeClass('DOMElement', 'JSLikeHTMLElement');
+		if (trim($html) == '') $html = '<html></html>';
 		@$this->dom->loadHTML($html);
 		$this->url = $url;
 	}

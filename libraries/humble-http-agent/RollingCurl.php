@@ -337,8 +337,9 @@ class RollingCurl implements Countable {
             }
 
             // Block for data in / output; error handling is done by curl_multi_exec
-            if ($running)
-                curl_multi_select($master, $this->timeout);
+            //if ($running) curl_multi_select($master, $this->timeout);
+			// removing timeout as it causes problems on Windows with PHP 5.3.5 and Curl 7.20.0
+			if ($running) curl_multi_select($master);
 
         } while ($running);
         curl_multi_close($master);
@@ -365,6 +366,10 @@ class RollingCurl implements Countable {
         //    $options[CURLOPT_MAXREDIRS] = 5;
         //}
         $headers = $this->__get('headers');
+		// append custom headers for this specific request
+		if ($request->headers) {
+			$headers = $headers + $request->headers;
+		}
 
         // append custom options for this specific request
         if ($request->options) {

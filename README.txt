@@ -1,6 +1,13 @@
 Full-Text RSS
 =============
 
+NOTE
+----
+
+This is a our public version of Full-Text RSS available to download for free from http://code.fivefilters.org.
+
+To sustain the project we sell copies of the most up-to-date version at http://fivefilters.org/content-only/#download - so if you like this, please consider supporting us by purchasing the latest release.
+
 About
 -----
 
@@ -14,7 +21,7 @@ Installation
 
 2. FTP the files up to your server
 
-3. Access index.php through your browser. E.g. http://my-host.com/full-text-rss/index.php
+3. Access index.php through your browser. E.g. http://example.org/full-text-rss/index.php
 
 4. Enter a URL in the form field to test the code
 
