@@ -96,14 +96,16 @@ if (!defined('_FF_FTR_INDEX')) {
 	<p>Thanks for downloading and setting this up. If you haven't done so already, <a href="ftr_compatibility_test.php">check server compatibility</a>
 	to see if your environment will support this application. Full-Text RSS runs on most shared web hosting environments.</p>
 	<h3>Configure</h3>
-	<p>In addition to the options above, Full-Text RSS comes with a configuration file which allows you to control how the application works. Features include:</p>
+	<p>In addition to the options above, Full-Text RSS can be configured to better suit your needs. Features include:</p>
 	<ul>
 		<li>Site patterns for better control over extraction (<a href="site_config/README.txt">more info</a>)</li>
 		<li>Restrict access to a pre-defined set of URLs or block certain URLs</li>
 		<li>Restrict the maximum number of feed items to be processed</li>
+		<li>JSON output</li>
 		<li>Prepend or append an HTML fragment to each feed item processed</li>
 		<li>Caching</li>		
 	</ul>
+	<p>Please refer to the <a href="http://fivefilters.org/content-only/guide/user_guide_2.8.pdf">user guide</a> for more information.</p>
 	<p><?php if (!file_exists('custom_config.php')) { ?>To change the configuration, save a copy of <tt>config.php</tt> as <tt>custom_config.php</tt> and make any changes you like to it.<?php } else { ?>To change the configuration, edit <tt>custom_config.php</tt> and make any changes you like.<?php } ?></p>
 
 	<p>If everything works fine, feel free to modify this page by saving it as <tt>custom_index.php</tt> and change it to whatever you like.</p>
@@ -118,7 +120,8 @@ if (!defined('_FF_FTR_INDEX')) {
 	<p>To see if you're running the latest version, <a href="http://fivefilters.org/content-only/latest_version.php?version=<?php echo urlencode(_FF_FTR_VERSION); ?>">check for updates</a>.</p>
 	
 	<h3 id="donate">Support</h3>
-	<p>We have more information in the section below, but if you need help with anything, please email <a href="mailto:fivefilters@fivefilters.org">fivefilters@fivefilters.org</a>.</p>
+	<p>We have a <a href="https://member.fivefilters.org/f/">public forum</a> which anyone can use to discuss any issues, post questions and find answers (it's free to join and post).</p>
+	<p>We provide a little more information in the section below, but if you need help with anything, you can also email us at <a href="mailto:fivefilters@fivefilters.org">fivefilters@fivefilters.org</a>.</p>
 	
 	<hr />
 	

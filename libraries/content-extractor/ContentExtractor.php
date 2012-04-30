@@ -5,8 +5,8 @@
  * Uses patterns specified in site config files and auto detection (hNews/PHP Readability) 
  * to extract content from HTML files.
  * 
- * @version 0.5
- * @date 2011-03-07
+ * @version 0.6
+ * @date 2011-05-04
  * @author Keyvan Minoukadeh
  * @copyright 2011 Keyvan Minoukadeh
  * @license http://www.gnu.org/licenses/agpl-3.0.html AGPL v3
@@ -14,13 +14,13 @@
 
 class ContentExtractor
 {
-	const HOSTNAME_REGEX = '/^(([a-zA-Z0-9-]*[a-zA-Z0-9])\.)*([A-Za-z0-9-]*[A-Za-z0-9])$/';
-	protected static $config_cache = array();
 	protected static $tidy_config = array(
 				 'clean' => true,
 				 'output-xhtml' => true,
 				 'logical-emphasis' => true,
 				 'show-body-only' => false,
+				 'new-blocklevel-tags' => 'article, aside, footer, header, hgroup, menu, nav, section, details, datagrid',
+				 'new-inline-tags' => 'new-inline-tags: mark, time, meter, progress',
 				 'wrap' => 0,
 				 'drop-empty-paras' => true,
 				 'drop-proprietary-attributes' => false,
@@ -31,19 +31,16 @@ class ContentExtractor
 				 'char-encoding' => 'utf8',
 				 'hide-comments' => true
 				 );
-	protected $config_path;
 	protected $html;
 	protected $config;
 	protected $title;
 	protected $body;
 	protected $success = false;
-	protected $fallback;
 	public $readability;	
 	public $debug = false;
 
-	function __construct($config_path=null, ContentExtractor $config_fallback=null) {
-		$this->config_path = $config_path;
-		$this->fallback = $config_fallback;
+	function __construct($path, $fallback=null) {
+		SiteConfig::set_config_path($path, $fallback);	
 	}
 	
 	protected function debug($msg) {
@@ -66,71 +63,6 @@ class ContentExtractor
 		$this->success = false;
 	}
 	
-	// returns SiteConfig instance if an appropriate one is found, false otherwise
-	public function get_site_config($host) {
-		$host = strtolower($host);
-		if (substr($host, 0, 4) == 'www.') $host = substr($host, 4);
-		if (!$host || (strlen($host) > 200) || !preg_match(self::HOSTNAME_REGEX, $host)) return false;
-		// check for site configuration
-		$try = array($host);
-		$split = explode('.', $host);
-		if (count($split) > 1) {
-			array_shift($split);
-			$try[] = '.'.implode('.', $split);
-		}
-		foreach ($try as $h) {
-			if (array_key_exists($h, self::$config_cache)) {
-				$this->debug("... cached ($h)");
-				return self::$config_cache[$h];
-			} elseif (file_exists($this->config_path."/$h.txt")) {
-				$this->debug("... from file ($h)");
-				$file = $this->config_path."/$h.txt";
-				break;
-			}
-		}
-		if (!isset($file)) {
-			if (isset($this->fallback)) {
-				$this->debug("... trying fallback ($host)");
-				return $this->fallback->get_site_config($host);
-			} else {
-				$this->debug("... no match ($host)");
-				return false;
-			}
-		}
-		$config_file = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-		if (!$config_file || !is_array($config_file)) return false;
-		$config = new SiteConfig();
-		foreach ($config_file as $line) {
-			$line = trim($line);
-			
-			// skip comments, empty lines
-			if ($line == '' || $line[0] == '#') continue;
-			
-			// get command
-			$command = explode(':', $line, 2);
-			// if there's no colon ':', skip this line
-			if (count($command) != 2) continue;
-			$val = trim($command[1]);
-			$command = trim($command[0]);
-			if ($command == '' || $val == '') continue;
-			
-			// check for commands where we accept multiple statements
-			if (in_array($command, array('title', 'body', 'strip', 'strip_id_or_class', 'strip_image_src'))) {
-				array_push($config->$command, $val);
-			// check for single statement commands that evaluate to true or false
-			} elseif (in_array($command, array('tidy', 'prune', 'autodetect_on_failure'))) {
-				$config->$command = ($val == 'yes');
-			// check for single statement commands stored as strings
-			} elseif (in_array($command, array('test_url'))) {
-				$config->$command = $val;
-			}
-		}
-		// store copy of config in our static cache array in case we need to process another URL
-		self::$config_cache[$h] = $config;
-		
-		return $config;
-	}
-	
 	// returns true on success, false on failure
 	// $smart_tidy indicates that if tidy is used and no results are produced, we will
 	// try again without it. Tidy helps us deal with PHP's patchy HTML parsing most of the time
@@ -140,11 +72,12 @@ class ContentExtractor
 		
 		// extract host name
 		$host = @parse_url($url, PHP_URL_HOST);
-		if (!($this->config = $this->get_site_config($host))) {
+		if (!($this->config = SiteConfig::build($host))) {
 			// no match, so use defaults
 			$this->config = new SiteConfig();
-			self::$config_cache[$host] = $this->config;
 		}
+		// store copy of config in our static cache array in case we need to process another URL
+		SiteConfig::add_to_cache($host, $this->config);
 		
 		// use tidy (if it exists)?
 		// This fixes problems with some sites which would otherwise

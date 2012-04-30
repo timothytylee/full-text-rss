@@ -13,7 +13,7 @@ SimplePie.org. We have kept most of their checks intact as we use SimplePie in o
 http://github.com/simplepie/simplepie/tree/master/compatibility_test/
 */
 
-$app_name = 'Full-Text RSS 2.7';
+$app_name = 'Full-Text RSS 2.8';
 
 $php_ok = (function_exists('version_compare') && version_compare(phpversion(), '5.2.0', '>='));
 $pcre_ok = extension_loaded('pcre');
@@ -327,7 +327,7 @@ div.chunk {
 				<p><em>Your webhost has its act together!</em></p>
 				<p>You can download the latest version of <?php echo $app_name; ?> from <a href="http://fivefilters.org/content-only/#download">FiveFilters.org</a>.</p>
 				<p><strong>Note</strong>: Passing this test does not guarantee that <?php echo $app_name; ?> will run on your webhost &mdash; it only ensures that the basic requirements have been addressed. If you experience any problems, please let us know.</p>
-			<?php } else if ($php_ok && $xml_ok && $pcre_ok && $allow_url_fopen_ok && $filter_ok) { ?>
+			<?php } else if ($php_ok && $xml_ok && $pcre_ok && $mbstring_ok && $allow_url_fopen_ok && $filter_ok) { ?>
 				<h3>Bottom Line: Yes, you can!</h3>
 				<p><em>For most feeds, it'll run with no problems.</em> There are certain languages that you might have a hard time with though.</p>
 				<p>You can download the latest version of <?php echo $app_name; ?> from <a href="http://fivefilters.org/content-only/#download">FiveFilters.org</a>.</p>

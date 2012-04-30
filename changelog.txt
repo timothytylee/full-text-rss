@@ -2,6 +2,15 @@ FiveFilters.org: Full-Text RSS
 http://fivefilters.org/content-only/
 CHANGELOG
 ------------------------------------
+2.8 (2011-05-30)
+ - Tidy no longer stripping HTML5 elements
+ - JSON output (pass &format=json in querystring)
+ - New site patterns added and old ones updated
+ - New site config option to force full-page retrieval on multi-page articles: single_page_link
+ - User Guide (PDF) now included (although still a work in progress)
+ - URL placeholders now accepted in message_to_prepend/append config options
+ - Plus minor fixes...
+
 2.7 (2011-03-21)
  - Site patterns for better control over extraction (see site_config/README.txt)
  - hNews support (improves content extraction for sites using hNews microformatting)

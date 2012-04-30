@@ -7,8 +7,8 @@
  * For environments which do not have these options, it reverts to standard sequential 
  * requests (using file_get_contents())
  * 
- * @version 0.8
- * @date 2011-02-28
+ * @version 0.9.5
+ * @date 2011-05-23
  * @see http://php.net/HttpRequestPool
  * @author Keyvan Minoukadeh
  * @copyright 2011 Keyvan Minoukadeh
@@ -103,6 +103,15 @@ class HumbleHttpAgent
 		$iri->query = str_replace('%2F', '/', http_build_query($query)); // needed for some sites
 		return $iri->uri;
 	}
+	
+	public function removeFragment($url) {
+		$pos = strpos($url, '#');
+		if ($pos === false) {
+			return $url;
+		} else {
+			return substr($url, 0, $pos);
+		}
+	}	
 	
 	public function enableDebug($bool=true) {
 		$this->debug = (bool)$bool;
@@ -211,6 +220,7 @@ class HumbleHttpAgent
 						} else {
 							$this->debug("......adding to pool");
 							$req_url = ($this->rewriteHashbangFragment) ? $this->rewriteHashbangFragment($url) : $url;
+							$req_url = $this->removeFragment($req_url);
 							$httpRequest = new HttpRequest($req_url, HttpRequest::METH_GET, $this->requestOptions);
 							// send cookies, if we have any
 							if ($cookies = $this->cookieJar->getMatchingCookies($req_url)) {
@@ -225,7 +235,11 @@ class HumbleHttpAgent
 					// did we get anything into the pool?
 					if (count($pool) > 0) {
 						$this->debug('Sending request...');
-						$pool->send();
+						try {
+							$pool->send();
+						} catch (HttpRequestPoolException $e) {
+							// do nothing
+						}
 						$this->debug('Received responses');
 						foreach($subset as $orig => $url) {
 							if (!$isRedirect) $orig = $url;
@@ -240,7 +254,9 @@ class HumbleHttpAgent
 								// is redirect?
 								if ((in_array($status_code, array(300, 301, 302, 303, 307)) || $status_code > 307 && $status_code < 400) && $request->getResponseHeader('location')) {
 									$redirectURL = $request->getResponseHeader('location');
-									$redirectURL = SimplePie_Misc::absolutize_url($redirectURL, $url);
+									if (!preg_match('!^https?://!i', $redirectURL)) {
+										$redirectURL = SimplePie_Misc::absolutize_url($redirectURL, $url);
+									}
 									if ($this->validateURL($redirectURL)) {
 										$this->debug('Redirect detected. Valid URL: '.$redirectURL);
 										// store any cookies
@@ -298,6 +314,7 @@ class HumbleHttpAgent
 					} else {
 						$this->debug("......adding to pool");
 						$req_url = ($this->rewriteHashbangFragment) ? $this->rewriteHashbangFragment($url) : $url;
+						$req_url = $this->removeFragment($req_url);
 						$headers = array();
 						// send cookies, if we have any
 						if ($cookies = $this->cookieJar->getMatchingCookies($req_url)) {
@@ -327,7 +344,9 @@ class HumbleHttpAgent
 						$status_code = $this->requests[$orig]['status_code'];
 						if ((in_array($status_code, array(300, 301, 302, 303, 307)) || $status_code > 307 && $status_code < 400) && isset($this->requests[$orig]['location'])) {
 							$redirectURL = $this->requests[$orig]['location'];
-							$redirectURL = SimplePie_Misc::absolutize_url($redirectURL, $url);
+							if (!preg_match('!^https?://!i', $redirectURL)) {
+								$redirectURL = SimplePie_Misc::absolutize_url($redirectURL, $url);
+							}
 							if ($this->validateURL($redirectURL)) {
 								$this->debug('Redirect detected. Valid URL: '.$redirectURL);
 								// store any cookies
@@ -367,6 +386,7 @@ class HumbleHttpAgent
 					$this->debug("Sending request for $url");
 					$this->requests[$orig]['original_url'] = $orig;					
 					$req_url = ($this->rewriteHashbangFragment) ? $this->rewriteHashbangFragment($url) : $url;
+					$req_url = $this->removeFragment($req_url);
 					// send cookies, if we have any
 					$httpContext = $this->httpContext;
 					if ($cookies = $this->cookieJar->getMatchingCookies($req_url)) {
@@ -391,7 +411,9 @@ class HumbleHttpAgent
 							}
 							if ((in_array($status_code, array(300, 301, 302, 303, 307)) || $status_code > 307 && $status_code < 400) && isset($this->requests[$orig]['location'])) {
 								$redirectURL = $this->requests[$orig]['location'];
-								$redirectURL = SimplePie_Misc::absolutize_url($redirectURL, $url);
+								if (!preg_match('!^https?://!i', $redirectURL)) {
+									$redirectURL = SimplePie_Misc::absolutize_url($redirectURL, $url);
+								}
 								if ($this->validateURL($redirectURL)) {
 									$this->debug('Redirect detected. Valid URL: '.$redirectURL);
 									// store any cookies
@@ -444,6 +466,7 @@ class HumbleHttpAgent
 	}
 	
 	public function get($url, $remove=false) {
+		$url = "$url";
 		if (isset($this->requests[$url]) && isset($this->requests[$url]['body'])) {
 			$this->debug("URL already fetched - in memory ($url, effective: {$this->requests[$url]['effective_url']})");
 			$response = $this->requests[$url];

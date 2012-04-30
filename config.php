@@ -74,11 +74,17 @@ $options->cache_dir = dirname(__FILE__).'/cache';
 // Message to prepend (without API key)
 // ----------------------
 // HTML to insert at the beginning of each feed item when no API key is supplied.
+// Substitution tags:
+// {url} - Feed item URL
+// {effective-url} - Feed item URL after we've followed all redirects
 $options->message_to_prepend = '';
 
 // Message to append (without API key)
 // ----------------------
 // HTML to insert at the end of each feed item when no API key is supplied.
+// Substitution tags:
+// {url} - Feed item URL
+// {effective-url} - Feed item URL after we've followed all redirects
 $options->message_to_append = '';
 
 // URLs to allow
@@ -188,7 +194,7 @@ $options->error_message_with_key = '[unable to retrieve full-text content]';
 /// DO NOT CHANGE ANYTHING BELOW THIS ///////////
 /////////////////////////////////////////////////
 
-if (!defined('_FF_FTR_VERSION')) define('_FF_FTR_VERSION', '2.7');
+if (!defined('_FF_FTR_VERSION')) define('_FF_FTR_VERSION', '2.8');
 
 if ((basename(__FILE__) == 'config.php') && (file_exists(dirname(__FILE__).'/custom_config.php'))) {
 	require_once(dirname(__FILE__).'/custom_config.php');
