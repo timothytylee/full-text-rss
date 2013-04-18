@@ -384,6 +384,11 @@ class RollingCurl implements Countable {
         }
 		// return response headers
 		$options[CURLOPT_HEADER] = 1;
+		
+		// send HEAD request?
+		if ($request->method == 'HEAD') {
+			$options[CURLOPT_NOBODY] = 1;
+		}
 
         return $options;
     }

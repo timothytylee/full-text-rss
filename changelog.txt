@@ -2,6 +2,35 @@ FiveFilters.org: Full-Text RSS
 http://fivefilters.org/content-only/
 CHANGELOG
 ------------------------------------
+2.9.5 (2012-04-29)
+ - Language detection using Text_LanguageDetect or PHP-CLD (dc:language field in output and $options->detect_language in config)
+ - New site patterns added and old ones updated
+ - Experimental tool for simpler site pattern updates (access admin/ folder)
+ - Plus other fixes/improvements
+
+2.9.1 (2011-11-02)
+ - Fix: Character encoding issue affecting some non-English articles (makefulltextfeed.php and SimplePie/Misc.php changed)
+
+2.9 (2011-11-01)
+ - New site patterns added and old ones updated
+ - New config option: require_key - restrict access to those with password/key
+ - New config option: rewrite_url - URL rewrite rules to be applied before HTTP request
+ - New site config options to extract author(s) and publication date (matches included in feed item as <dc:creator> and <pubDate>)
+ - New site config option: replace_string([string to find]): [replacement string]
+ - New site identification method: site fingerprints (HTML fragments linked to site config)
+ - Update check now also checks for new site patterns
+ - Effective URL (URL after redirects/rewrites) now included in feed item as <dc:identifier>
+ - Prevent indexing of generated feeds by search engines
+ - Enclosure support (enclosures preserved as <media:content> elements)
+ - Better handling of non-HTML content types
+ - Sending custom User-Agent HTTP header for matching sites now supported
+ - CSS extraction deprecated in favour of site patterns (still works, but form field removed and feature may disappear in 3.0)
+ - Fix: Improved character-encoding detection
+ - Fix: URL parsing issues for certain URLs (SimplePie updated)
+ - Fix: Author and other Dublin Core (<dc:..>) elements now appear in JSON output
+ - Fix: Minor fixes for PHP Readability
+ - Plus other minor fixes/improvements
+ 
 2.8 (2011-05-30)
  - Tidy no longer stripping HTML5 elements
  - JSON output (pass &format=json in querystring)

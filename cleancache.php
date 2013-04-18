@@ -1,7 +1,7 @@
 <?php
 // Full-Text RSS: Clear Cache
 // Author: Keyvan Minoukadeh
-// Copyright (c) 2010 Keyvan Minoukadeh
+// Copyright (c) 2012 Keyvan Minoukadeh
 // License: AGPLv3
 
 /*
@@ -61,7 +61,7 @@ $frontendOptions = array(
    'write_control' => false,
    'automatic_cleaning_factor' => 0,
    'ignore_user_abort' => false
-); 
+);
 $backendOptions = array(
 	'cache_dir' => $options->cache_dir.'/http-responses/',
 	'file_locking' => false,

@@ -7,11 +7,11 @@
  * For environments which do not have these options, it reverts to standard sequential 
  * requests (using file_get_contents())
  * 
- * @version 0.9.5
- * @date 2011-05-23
+ * @version 1.0
+ * @date 2012-02-09
  * @see http://php.net/HttpRequestPool
  * @author Keyvan Minoukadeh
- * @copyright 2011 Keyvan Minoukadeh
+ * @copyright 2011-2012 Keyvan Minoukadeh
  * @license http://www.gnu.org/licenses/agpl-3.0.html AGPL v3
  */
 
@@ -20,6 +20,10 @@ class HumbleHttpAgent
 	const METHOD_REQUEST_POOL = 1;
 	const METHOD_CURL_MULTI = 2;
 	const METHOD_FILE_GET_CONTENTS = 4;
+	//const UA_BROWSER = 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:2.0.1) Gecko/20100101 Firefox/4.0.1';
+	const UA_BROWSER = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.2 (KHTML, like Gecko) Chrome/15.0.874.92 Safari/535.2';
+	const UA_PHP = 'PHP/5.2';
+	const REF_GOOGLE = 'http://www.google.co.uk/url?sa=t&source=web&cd=1';
 	
 	protected $requests = array();
 	protected $redirectQueue = array();
@@ -33,12 +37,27 @@ class HumbleHttpAgent
 	protected $cookieJar;
 	public $rewriteHashbangFragment = true; // see http://code.google.com/web/ajaxcrawling/docs/specification.html
 	public $maxRedirects = 5;
+	public $userAgentMap = array();
+	public $rewriteUrls = array();
+	public $userAgentDefault;
+	public $referer;
+	//public $userAgent = 'Mozilla/5.0';
 	
-	//TODO: prevent certain file/mime types
+	// Prevent certain file/mime types
+	// HTTP responses which match these content types will
+	// be returned without body.
+	public $headerOnlyTypes = array();
+	// URLs ending with one of these extensions will
+	// prompt Humble HTTP Agent to send a HEAD request first
+	// to see if returned content type matches $headerOnlyTypes.
+	public $headerOnlyClues = array('pdf','mp3','zip','exe','gif','gzip','gz','jpeg','jpg','mpg','mpeg','png','ppt','mov'); 
+	
 	//TODO: set max file size
 	//TODO: normalise headers
 	
 	function __construct($requestOptions=null, $method=null) {
+		$this->userAgentDefault = self::UA_BROWSER;
+		$this->referer = self::REF_GOOGLE;
 		// set the request method
 		if (in_array($method, array(1,2,4))) {
 			$this->method = $method;
@@ -58,7 +77,7 @@ class HumbleHttpAgent
 		$this->cookieJar = new CookieJar();
 		// set request options (redirect must be 0)
 		$this->requestOptions = array(
-			'timeout' => 10,
+			'timeout' => 15,
 			'redirect' => 0 // we handle redirects manually so we can rewrite the new hashbang URLs that are creeping up over the web
 			// TODO: test onprogress?
 		);
@@ -70,8 +89,7 @@ class HumbleHttpAgent
 				'ignore_errors' => true,
 				'timeout' => $this->requestOptions['timeout'],
 				'max_redirects' => $this->requestOptions['redirect'],
-				'header' => "User-Agent: PHP/".phpversion()."\r\n".
-							"Accept: */*\r\n"
+				'header' => "Accept: */*\r\n"
 				)
 			);
 	}
@@ -87,21 +105,49 @@ class HumbleHttpAgent
 		}
 	}
 	
+	protected function getUserAgent($url, $asArray=false) {
+		$host = @parse_url($url, PHP_URL_HOST);
+		if (strtolower(substr($host, 0, 4)) == 'www.') {
+			$host = substr($host, 4);
+		}
+		if ($host) {
+			$try = array($host);
+			$split = explode('.', $host);
+			if (count($split) > 1) {
+				array_shift($split);
+				$try[] = '.'.implode('.', $split);
+			}
+			foreach ($try as $h) {
+				if (isset($this->userAgentMap[$h])) {
+					$ua = $this->userAgentMap[$h];
+					break;
+				}
+			}
+		}
+		if (!isset($ua)) $ua = $this->userAgentDefault;
+		if ($asArray) {
+			return array('User-Agent' => $ua);
+		} else {
+			return 'User-Agent: '.$ua;
+		}
+	}
+	
 	public function rewriteHashbangFragment($url) {
 		// return $url if there's no '#!'
 		if (strpos($url, '#!') === false) return $url;
 		// split $url and rewrite
-		$iri = new IRI($url);
-		$fragment = substr($iri->ifragment, 1); // strip '!'
+		// TODO: is SimplePie_IRI included?
+		$iri = new SimplePie_IRI($url);
+		$fragment = substr($iri->fragment, 1); // strip '!'
 		$iri->fragment = null;
-		if (isset($iri->iquery)) {
-			parse_str($iri->iquery, $query);
+		if (isset($iri->query)) {
+			parse_str($iri->query, $query);
 		} else {
 			$query = array();
 		}
 		$query['_escaped_fragment_'] = (string)$fragment;
 		$iri->query = str_replace('%2F', '/', http_build_query($query)); // needed for some sites
-		return $iri->uri;
+		return $iri->get_iri();
 	}
 	
 	public function removeFragment($url) {
@@ -111,7 +157,18 @@ class HumbleHttpAgent
 		} else {
 			return substr($url, 0, $pos);
 		}
-	}	
+	}
+	
+	public function rewriteUrls($url) {
+		foreach ($this->rewriteUrls as $find => $action) {
+			if (strpos($url, $find) !== false) {
+				if (is_array($action)) {
+					return strtr($url, $action);
+				}
+			}
+		}
+		return $url;
+	}
 	
 	public function enableDebug($bool=true) {
 		$this->debug = (bool)$bool;
@@ -138,48 +195,6 @@ class HumbleHttpAgent
 			return false;
 		}
 	}
-	
-	/**
-	 * Set cache object.
-	 * The cache object passed should implement Zend_Cache_Backend_Interface
-	 * @param Zend_Cache_Backend_Interface
-	 */
-	/* all disk caching temporily disabled - needs work
-	 public function useCache($cache) {
-		$this->cache = $cache;
-	}	
-	
-	public function isCached($url) {
-		if (!isset($this->cache)) return false;
-		return ($this->cache->test(md5($url)) !== false);
-	}
-	
-	public function getCached($url) {
-		$cached = $this->cache->load(md5($url));
-		$cached['fromCache'] = true;
-		return $cached;
-	}
-	
-	public function cache($url) {
-		if (isset($this->cache) && !isset($this->requests[$url]['fromCache']) && isset($this->requests[$url]['body'])) {
-			$this->debug("Saving to cache ($url)");
-			$res = $this->cache->save($this->requests[$url], md5($url));
-			//$res = @file_put_contents($this->cacheFolder.'/'.md5($url).'.txt', serialize($this->requests[$url]));
-			return ($res !== false);
-		}
-		return false;
-	}
-	
-	public function cacheAll() {
-		if (isset($this->cache)) {
-			foreach (array_keys($this->requests) as $url) {
-				$this->cache($url);
-			}
-			return true;
-		}
-		return false;
-	}
-	*/
 	
 	public function fetchAll(array $urls) {
 		$this->fetchAllOnce($urls, $isRedirect=false);
@@ -219,14 +234,25 @@ class HumbleHttpAgent
 						*/
 						} else {
 							$this->debug("......adding to pool");
-							$req_url = ($this->rewriteHashbangFragment) ? $this->rewriteHashbangFragment($url) : $url;
+							$req_url = $this->rewriteUrls($url);
+							$req_url = ($this->rewriteHashbangFragment) ? $this->rewriteHashbangFragment($req_url) : $req_url;
 							$req_url = $this->removeFragment($req_url);
-							$httpRequest = new HttpRequest($req_url, HttpRequest::METH_GET, $this->requestOptions);
+							if (!empty($this->headerOnlyTypes) && !isset($this->requests[$orig]['wrongGuess']) && $this->possibleUnsupportedType($req_url)) {
+								$_meth = HttpRequest::METH_HEAD;
+							} else {
+								$_meth = HttpRequest::METH_GET;
+								unset($this->requests[$orig]['wrongGuess']);
+							}
+							$httpRequest = new HttpRequest($req_url, $_meth, $this->requestOptions);
 							// send cookies, if we have any
 							if ($cookies = $this->cookieJar->getMatchingCookies($req_url)) {
 								$this->debug("......sending cookies: $cookies");
 								$httpRequest->addHeaders(array('Cookie' => $cookies));
 							}
+							//$httpRequest->addHeaders(array('User-Agent' => $this->userAgent));
+							$httpRequest->addHeaders($this->getUserAgent($req_url, true));
+							// add referer for picky sites
+							$httpRequest->addheaders(array('Referer' => $this->referer));
 							$this->requests[$orig] = array('headers'=>null, 'body'=>null, 'httpRequest'=>$httpRequest);
 							$this->requests[$orig]['original_url'] = $orig;
 							$pool->attach($httpRequest);
@@ -243,42 +269,56 @@ class HumbleHttpAgent
 						$this->debug('Received responses');
 						foreach($subset as $orig => $url) {
 							if (!$isRedirect) $orig = $url;
-							//if (!isset($this->requests[$url]['fromCache'])) {
-								$request = $this->requests[$orig]['httpRequest'];
-								//$this->requests[$orig]['headers'] = $this->headersToString($request->getResponseHeader());
-								// getResponseHeader() doesn't return status line, so, for consistency...
-								$this->requests[$orig]['headers'] = substr($request->getRawResponseMessage(), 0, $request->getResponseInfo('header_size'));
+							$request = $this->requests[$orig]['httpRequest'];
+							//$this->requests[$orig]['headers'] = $this->headersToString($request->getResponseHeader());
+							// getResponseHeader() doesn't return status line, so, for consistency...
+							$this->requests[$orig]['headers'] = substr($request->getRawResponseMessage(), 0, $request->getResponseInfo('header_size'));
+							// check content type
+							// TODO: use getResponseHeader('content-type') or getResponseInfo()
+							if ($this->headerOnlyType($this->requests[$orig]['headers'])) {
+								$this->requests[$orig]['body'] = '';
+								$_header_only_type = true;
+								$this->debug('Header only type returned');
+							} else {
 								$this->requests[$orig]['body'] = $request->getResponseBody();
-								$this->requests[$orig]['effective_url'] = $request->getResponseInfo('effective_url');
-								$this->requests[$orig]['status_code'] = $status_code = $request->getResponseCode();
-								// is redirect?
-								if ((in_array($status_code, array(300, 301, 302, 303, 307)) || $status_code > 307 && $status_code < 400) && $request->getResponseHeader('location')) {
-									$redirectURL = $request->getResponseHeader('location');
-									if (!preg_match('!^https?://!i', $redirectURL)) {
-										$redirectURL = SimplePie_Misc::absolutize_url($redirectURL, $url);
-									}
-									if ($this->validateURL($redirectURL)) {
-										$this->debug('Redirect detected. Valid URL: '.$redirectURL);
-										// store any cookies
-										$cookies = $request->getResponseHeader('set-cookie');
-										if ($cookies && !is_array($cookies)) $cookies = array($cookies);
-										if ($cookies) $this->cookieJar->storeCookies($url, $cookies);
-										$this->redirectQueue[$orig] = $redirectURL;
-									} else {
-										$this->debug('Redirect detected. Invalid URL: '.$redirectURL);
-									}
+								$_header_only_type = false;
+							}
+							$this->requests[$orig]['effective_url'] = $request->getResponseInfo('effective_url');
+							$this->requests[$orig]['status_code'] = $status_code = $request->getResponseCode();
+							// is redirect?
+							if ((in_array($status_code, array(300, 301, 302, 303, 307)) || $status_code > 307 && $status_code < 400) && $request->getResponseHeader('location')) {
+								$redirectURL = $request->getResponseHeader('location');
+								if (!preg_match('!^https?://!i', $redirectURL)) {
+									$redirectURL = SimplePie_Misc::absolutize_url($redirectURL, $url);
 								}
-								//die($url.' -multi- '.$request->getResponseInfo('effective_url'));
-								$pool->detach($request);
-								unset($this->requests[$orig]['httpRequest'], $request);
-								/*
-								if ($this->minimiseMemoryUse) {
-									if ($this->cache($url)) {
-										unset($this->requests[$url]);
-									}
+								if ($this->validateURL($redirectURL)) {
+									$this->debug('Redirect detected. Valid URL: '.$redirectURL);
+									// store any cookies
+									$cookies = $request->getResponseHeader('set-cookie');
+									if ($cookies && !is_array($cookies)) $cookies = array($cookies);
+									if ($cookies) $this->cookieJar->storeCookies($url, $cookies);
+									$this->redirectQueue[$orig] = $redirectURL;
+								} else {
+									$this->debug('Redirect detected. Invalid URL: '.$redirectURL);
 								}
-								*/
-							//}
+							} elseif (!$_header_only_type && $request->getMethod() === HttpRequest::METH_HEAD) {
+								// the response content-type did not match our 'header only' types, 
+								// but we'd issues a HEAD request because we assumed it would. So
+								// let's queue a proper GET request for this item...
+								$this->debug('Wrong guess at content-type, queing GET request');
+								$this->requests[$orig]['wrongGuess'] = true;
+								$this->redirectQueue[$orig] = $this->requests[$orig]['effective_url'];
+							}
+							//die($url.' -multi- '.$request->getResponseInfo('effective_url'));
+							$pool->detach($request);
+							unset($this->requests[$orig]['httpRequest'], $request);
+							/*
+							if ($this->minimiseMemoryUse) {
+								if ($this->cache($url)) {
+									unset($this->requests[$url]);
+								}
+							}
+							*/
 						}
 					}
 				}
@@ -313,15 +353,26 @@ class HumbleHttpAgent
 					*/
 					} else {
 						$this->debug("......adding to pool");
-						$req_url = ($this->rewriteHashbangFragment) ? $this->rewriteHashbangFragment($url) : $url;
+						$req_url = $this->rewriteUrls($url);
+						$req_url = ($this->rewriteHashbangFragment) ? $this->rewriteHashbangFragment($req_url) : $req_url;
 						$req_url = $this->removeFragment($req_url);
+						if (!empty($this->headerOnlyTypes) && !isset($this->requests[$orig]['wrongGuess']) && $this->possibleUnsupportedType($req_url)) {
+							$_meth = 'HEAD';
+						} else {
+							$_meth = 'GET';
+							unset($this->requests[$orig]['wrongGuess']);
+						}						
 						$headers = array();
+						//$headers[] = 'User-Agent: '.$this->userAgent;
+						$headers[] = $this->getUserAgent($req_url);
+						// add referer for picky sites
+						$headers[] = 'Referer: '.$this->referer;
 						// send cookies, if we have any
 						if ($cookies = $this->cookieJar->getMatchingCookies($req_url)) {
 							$this->debug("......sending cookies: $cookies");
 							$headers[] = 'Cookie: '.$cookies;
 						}
-						$httpRequest = new RollingCurlRequest($req_url, 'GET', null, $headers, array(
+						$httpRequest = new RollingCurlRequest($req_url, $_meth, null, $headers, array(
 							CURLOPT_CONNECTTIMEOUT => $this->requestOptions['timeout'],
 							CURLOPT_TIMEOUT => $this->requestOptions['timeout']
 							));
@@ -341,6 +392,14 @@ class HumbleHttpAgent
 						// $this->requests[$orig]['headers']
 						// $this->requests[$orig]['body']
 						// $this->requests[$orig]['effective_url']
+						// check content type
+						if ($this->headerOnlyType($this->requests[$orig]['headers'])) {
+							$this->requests[$orig]['body'] = '';
+							$_header_only_type = true;
+							$this->debug('Header only type returned');
+						} else {
+							$_header_only_type = false;
+						}
 						$status_code = $this->requests[$orig]['status_code'];
 						if ((in_array($status_code, array(300, 301, 302, 303, 307)) || $status_code > 307 && $status_code < 400) && isset($this->requests[$orig]['location'])) {
 							$redirectURL = $this->requests[$orig]['location'];
@@ -356,9 +415,16 @@ class HumbleHttpAgent
 							} else {
 								$this->debug('Redirect detected. Invalid URL: '.$redirectURL);
 							}
+						} elseif (!$_header_only_type && $this->requests[$orig]['method'] == 'HEAD') {
+								// the response content-type did not match our 'header only' types, 
+								// but we'd issues a HEAD request because we assumed it would. So
+								// let's queue a proper GET request for this item...
+								$this->debug('Wrong guess at content-type, queing GET request');
+								$this->requests[$orig]['wrongGuess'] = true;
+								$this->redirectQueue[$orig] = $this->requests[$orig]['effective_url'];
 						}
 						// die($url.' -multi- '.$request->getResponseInfo('effective_url'));
-						unset($this->requests[$orig]['httpRequest']);
+						unset($this->requests[$orig]['httpRequest'], $this->requests[$orig]['method']);
 					}
 				}
 			}
@@ -384,11 +450,15 @@ class HumbleHttpAgent
 				*/
 				} else {
 					$this->debug("Sending request for $url");
-					$this->requests[$orig]['original_url'] = $orig;					
-					$req_url = ($this->rewriteHashbangFragment) ? $this->rewriteHashbangFragment($url) : $url;
+					$this->requests[$orig]['original_url'] = $orig;
+					$req_url = $this->rewriteUrls($url);
+					$req_url = ($this->rewriteHashbangFragment) ? $this->rewriteHashbangFragment($req_url) : $req_url;
 					$req_url = $this->removeFragment($req_url);
 					// send cookies, if we have any
 					$httpContext = $this->httpContext;
+					$httpContext['http']['header'] .= $this->getUserAgent($req_url)."\r\n";
+					// add referer for picky sites
+					$httpContext['http']['header'] .= 'Referer: '.$this->referer."\r\n";
 					if ($cookies = $this->cookieJar->getMatchingCookies($req_url)) {
 						$this->debug("......sending cookies: $cookies");
 						$httpContext['http']['header'] .= 'Cookie: '.$cookies."\r\n";
@@ -401,7 +471,12 @@ class HumbleHttpAgent
 							// TODO: handle error - no status code
 						} else {
 							$this->requests[$orig]['headers'] = $this->headersToString($http_response_header, false);
-							$this->requests[$orig]['body'] = $html;
+							// check content type
+							if ($this->headerOnlyType($this->requests[$orig]['headers'])) {
+								$this->requests[$orig]['body'] = '';
+							} else {
+								$this->requests[$orig]['body'] = $html;
+							}
 							$this->requests[$orig]['effective_url'] = $req_url;
 							$this->requests[$orig]['status_code'] = $status_code = (int)$match[1];
 							unset($match);
@@ -442,6 +517,7 @@ class HumbleHttpAgent
 		$orig = $request->url_original;
 		$this->requests[$orig]['headers'] = substr($response, 0, $info['header_size']);
 		$this->requests[$orig]['body'] = substr($response, $info['header_size']);
+		$this->requests[$orig]['method'] = $request->method;
 		$this->requests[$orig]['effective_url'] = $info['url'];
 		$this->requests[$orig]['status_code'] = (int)$info['http_code'];
 		if (preg_match('/^Location:(.*?)$/m', $this->requests[$orig]['headers'], $match)) {
@@ -465,7 +541,7 @@ class HumbleHttpAgent
 		}
 	}
 	
-	public function get($url, $remove=false) {
+	public function get($url, $remove=false, $gzdecode=true) {
 		$url = "$url";
 		if (isset($this->requests[$url]) && isset($this->requests[$url]['body'])) {
 			$this->debug("URL already fetched - in memory ($url, effective: {$this->requests[$url]['effective_url']})");
@@ -493,11 +569,152 @@ class HumbleHttpAgent
 		}
 		*/
 		if ($remove && $response) unset($this->requests[$url]);
+		if ($gzdecode && stripos($response['headers'], 'Content-Encoding: gzip')) {
+			if ($html = gzdecode($response['body'])) {
+				$response['body'] = $html;
+			}
+		}
 		return $response;
 	}
 	
 	public function parallelSupport() {
 		return class_exists('HttpRequestPool') || function_exists('curl_multi_init');
+	}
+	
+	private function headerOnlyType($headers) {
+		if (preg_match('!^Content-Type:\s*(([a-z-]+)/([^;\r\n ]+))!im', $headers, $match)) {
+			// look for full mime type (e.g. image/jpeg) or just type (e.g. image)
+			$match[1] = strtolower(trim($match[1]));
+			$match[2] = strtolower(trim($match[2]));
+			foreach (array($match[1], $match[2]) as $mime) {
+				if (in_array($mime, $this->headerOnlyTypes)) return true;
+			}
+		}
+		return false;
+	}
+	
+	private function possibleUnsupportedType($url) {
+		$path = @parse_url($url, PHP_URL_PATH);
+		if ($path && strpos($path, '.') !== false) {
+			$ext = strtolower(trim(pathinfo($path, PATHINFO_EXTENSION)));
+			return in_array($ext, $this->headerOnlyClues);
+		}
+		return false;
+	}
+}
+
+// gzdecode from http://www.php.net/manual/en/function.gzdecode.php#82930
+if (!function_exists('gzdecode')) {
+	function gzdecode($data,&$filename='',&$error='',$maxlength=null) 
+	{
+		$len = strlen($data);
+		if ($len < 18 || strcmp(substr($data,0,2),"\x1f\x8b")) {
+			$error = "Not in GZIP format.";
+			return null;  // Not GZIP format (See RFC 1952)
+		}
+		$method = ord(substr($data,2,1));  // Compression method
+		$flags  = ord(substr($data,3,1));  // Flags
+		if ($flags & 31 != $flags) {
+			$error = "Reserved bits not allowed.";
+			return null;
+		}
+		// NOTE: $mtime may be negative (PHP integer limitations)
+		$mtime = unpack("V", substr($data,4,4));
+		$mtime = $mtime[1];
+		$xfl   = substr($data,8,1);
+		$os    = substr($data,8,1);
+		$headerlen = 10;
+		$extralen  = 0;
+		$extra     = "";
+		if ($flags & 4) {
+			// 2-byte length prefixed EXTRA data in header
+			if ($len - $headerlen - 2 < 8) {
+				return false;  // invalid
+			}
+			$extralen = unpack("v",substr($data,8,2));
+			$extralen = $extralen[1];
+			if ($len - $headerlen - 2 - $extralen < 8) {
+				return false;  // invalid
+			}
+			$extra = substr($data,10,$extralen);
+			$headerlen += 2 + $extralen;
+		}
+		$filenamelen = 0;
+		$filename = "";
+		if ($flags & 8) {
+			// C-style string
+			if ($len - $headerlen - 1 < 8) {
+				return false; // invalid
+			}
+			$filenamelen = strpos(substr($data,$headerlen),chr(0));
+			if ($filenamelen === false || $len - $headerlen - $filenamelen - 1 < 8) {
+				return false; // invalid
+			}
+			$filename = substr($data,$headerlen,$filenamelen);
+			$headerlen += $filenamelen + 1;
+		}
+		$commentlen = 0;
+		$comment = "";
+		if ($flags & 16) {
+			// C-style string COMMENT data in header
+			if ($len - $headerlen - 1 < 8) {
+				return false;    // invalid
+			}
+			$commentlen = strpos(substr($data,$headerlen),chr(0));
+			if ($commentlen === false || $len - $headerlen - $commentlen - 1 < 8) {
+				return false;    // Invalid header format
+			}
+			$comment = substr($data,$headerlen,$commentlen);
+			$headerlen += $commentlen + 1;
+		}
+		$headercrc = "";
+		if ($flags & 2) {
+			// 2-bytes (lowest order) of CRC32 on header present
+			if ($len - $headerlen - 2 < 8) {
+				return false;    // invalid
+			}
+			$calccrc = crc32(substr($data,0,$headerlen)) & 0xffff;
+			$headercrc = unpack("v", substr($data,$headerlen,2));
+			$headercrc = $headercrc[1];
+			if ($headercrc != $calccrc) {
+				$error = "Header checksum failed.";
+				return false;    // Bad header CRC
+			}
+			$headerlen += 2;
+		}
+		// GZIP FOOTER
+		$datacrc = unpack("V",substr($data,-8,4));
+		$datacrc = sprintf('%u',$datacrc[1] & 0xFFFFFFFF);
+		$isize = unpack("V",substr($data,-4));
+		$isize = $isize[1];
+		// decompression:
+		$bodylen = $len-$headerlen-8;
+		if ($bodylen < 1) {
+			// IMPLEMENTATION BUG!
+			return null;
+		}
+		$body = substr($data,$headerlen,$bodylen);
+		$data = "";
+		if ($bodylen > 0) {
+			switch ($method) {
+			case 8:
+				// Currently the only supported compression method:
+				$data = gzinflate($body,$maxlength);
+				break;
+			default:
+				$error = "Unknown compression method.";
+				return false;
+			}
+		}  // zero-byte body content is allowed
+		// Verifiy CRC32
+		$crc   = sprintf("%u",crc32($data));
+		$crcOK = $crc == $datacrc;
+		$lenOK = $isize == strlen($data);
+		if (!$lenOK || !$crcOK) {
+			$error = ( $lenOK ? '' : 'Length check FAILED. ') . ( $crcOK ? '' : 'Checksum FAILED.');
+			return false;
+		}
+		return $data;
 	}
 }
 ?>

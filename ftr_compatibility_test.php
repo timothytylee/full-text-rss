@@ -13,7 +13,7 @@ SimplePie.org. We have kept most of their checks intact as we use SimplePie in o
 http://github.com/simplepie/simplepie/tree/master/compatibility_test/
 */
 
-$app_name = 'Full-Text RSS 2.8';
+$app_name = 'Full-Text RSS 2.9';
 
 $php_ok = (function_exists('version_compare') && version_compare(phpversion(), '5.2.0', '>='));
 $pcre_ok = extension_loaded('pcre');
@@ -39,7 +39,7 @@ if (extension_loaded('xmlreader')) {
 
 header('Content-type: text/html; charset=UTF-8');
 
-?><!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN">
+?><!DOCTYPE html>
 
 <html lang="en">
 <head>

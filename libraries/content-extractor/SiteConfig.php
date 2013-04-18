@@ -5,8 +5,8 @@
  * Each instance of this class should hold extraction patterns and other directives
  * for a website. See ContentExtractor class to see how it's used.
  * 
- * @version 0.5
- * @date 2011-03-08
+ * @version 0.6
+ * @date 2011-10-30
  * @author Keyvan Minoukadeh
  * @copyright 2011 Keyvan Minoukadeh
  * @license http://www.gnu.org/licenses/agpl-3.0.html AGPL v3
@@ -15,10 +15,16 @@
 class SiteConfig
 {
 	// Use first matching element as title (0 or more xpath expressions)
-	public $title = array(); 
+	public $title = array();
 	
 	// Use first matching element as body (0 or more xpath expressions)
-	public $body = array(); 
+	public $body = array();
+	
+	// Use first matching element as author (0 or more xpath expressions)
+	public $author = array();
+	
+	// Use first matching element as date (0 or more xpath expressions)
+	public $date = array();
 	
 	// Strip elements matching these xpath expressions (0 or more)
 	public $strip = array();
@@ -28,6 +34,10 @@ class SiteConfig
 	
 	// Strip images which contain these strings (0 or more) in the src attribute 
 	public $strip_image_src = array();
+	
+	// Additional HTTP headers to send
+	// NOT YET USED
+	public $http_header = array();
 	
 	// Process HTML with tidy before creating DOM
 	public $tidy = true;
@@ -61,6 +71,9 @@ class SiteConfig
 	
 	// TODO: which parser to use for turning raw HTML into a DOMDocument
 	public $parser = 'libxml';
+	
+	// String replacement to be made on HTML before processing begins
+	public $replace_string = array();
 	
 	// the options below cannot be set in the config files which this class represents
 	
@@ -150,14 +163,19 @@ class SiteConfig
 			if ($command == '' || $val == '') continue;
 			
 			// check for commands where we accept multiple statements
-			if (in_array($command, array('title', 'body', 'strip', 'strip_id_or_class', 'strip_image_src', 'single_page_link', 'single_page_link_in_feed'))) {
+			if (in_array($command, array('title', 'body', 'author', 'date', 'strip', 'strip_id_or_class', 'strip_image_src', 'single_page_link', 'single_page_link_in_feed', 'http_header'))) {
 				array_push($config->$command, $val);
 			// check for single statement commands that evaluate to true or false
 			} elseif (in_array($command, array('tidy', 'prune', 'autodetect_on_failure'))) {
 				$config->$command = ($val == 'yes');
 			// check for single statement commands stored as strings
-			} elseif (in_array($command, array('test_url'))) {
+			} elseif (in_array($command, array('test_url', 'parser'))) {
 				$config->$command = $val;
+			} elseif ((substr($command, -1) == ')') && preg_match('!^([a-z0-9_]+)\((.*?)\)$!i', $command, $match)) {
+				if (in_array($match[1], array('replace_string'))) {
+					$command = $match[1];
+					array_push($config->$command, array($match[2], $val));
+				}
 			}
 		}
 		return $config;

@@ -10,7 +10,7 @@
 * More information: http://fivefilters.org/content-only/
 * License: Apache License, Version 2.0
 * Requires: PHP5
-* Date: 2010-10-29
+* Date: 2011-07-22
 * 
 * Differences between the PHP port and the original
 * ------------------------------------------------------
@@ -46,7 +46,7 @@
 require_once(dirname(__FILE__).'/JSLikeHTMLElement.php');
 
 // Alternative usage (for testing only!)
-// uncomment the lins below and call Readability.php in your browser 
+// uncomment the lines below and call Readability.php in your browser 
 // passing it the URL of the page you'd like content from, e.g.:
 // Readability.php?url=http://medialens.org/alerts/09/090615_the_guardian_climate.php
 
@@ -150,6 +150,7 @@ class Readability
 	**/
 	public function init()
 	{
+		if (!isset($this->dom->documentElement)) return false;
 		$this->removeScripts($this->dom);
 		//die($this->getInnerHTML($this->dom->documentElement));
 		
@@ -293,7 +294,6 @@ class Readability
 			$this->body = $this->dom->createElement('body');
 			$this->dom->documentElement->appendChild($this->body);
 		}
-		
 		$this->body->setAttribute('id', 'readabilityBody');
 
 		/* Remove all style tags in head */
@@ -664,9 +664,19 @@ class Readability
 		if ($topCandidate === null || strtoupper($topCandidate->tagName) == 'BODY')
 		{
 			$topCandidate = $this->dom->createElement('div');
-			$topCandidate->innerHTML = ($page instanceof DOMDocument) ? $page->saveXML($page->documentElement) : $page->innerHTML;
-			$page->innerHTML = '';
-			$page->appendChild($topCandidate);
+			if ($page instanceof DOMDocument) {
+				if (!isset($page->documentElement)) {
+					// we don't have a body either? what a mess! :)
+				} else {
+					$topCandidate->innerHTML = $page->documentElement->innerHTML;
+					$page->documentElement->innerHTML = '';
+					$page->documentElement->appendChild($topCandidate);
+				}
+			} else {
+				$topCandidate->innerHTML = $page->innerHTML;
+				$page->innerHTML = '';
+				$page->appendChild($topCandidate);
+			}
 			$this->initializeNode($topCandidate);
 		}
 
@@ -678,6 +688,10 @@ class Readability
 		$articleContent->setAttribute('id', 'readability-content');
 		$siblingScoreThreshold = max(10, ((int)$topCandidate->getAttribute('readability')) * 0.2);
 		$siblingNodes          = $topCandidate->parentNode->childNodes;
+		if (!isset($siblingNodes)) {
+			$siblingNodes = new stdClass;
+			$siblingNodes->length = 0;
+		}
 
 		for ($s=0, $sl=$siblingNodes->length; $s < $sl; $s++)
 		{
@@ -769,6 +783,9 @@ class Readability
 		**/
 		if (strlen($this->getInnerText($articleContent, false)) < 250)
 		{
+			// TODO: find out why element disappears sometimes, e.g. for this URL http://www.businessinsider.com/6-hedge-fund-etfs-for-average-investors-2011-7
+			// in the meantime, we check and create an empty element if it's not there.
+			if (!isset($this->body->childNodes)) $this->body = $this->dom->createElement('body');
 			$this->body->innerHTML = $this->bodyCache;
 			
 			if ($this->flagIsActive(self::FLAG_STRIP_UNLIKELYS)) {
@@ -846,6 +863,7 @@ class Readability
 	* @return void
 	*/
 	public function cleanStyles($e) {
+		if (!is_object($e)) return;
 		$elems = $e->getElementsByTagName('*');
 		foreach ($elems as $elem) {
 			$elem->removeAttribute('style');

@@ -1,18 +1,15 @@
 <?php
-// RSS 0.90  Officially obsoleted by 1.0
-// RSS 0.91, 0.92, 0.93 and 0.94  Officially obsoleted by 2.0
-// So, define constants for RSS 1.0, RSS 2.0 and ATOM 	
-
-define('RSS1', 'RSS 1.0', true);
-define('RSS2', 'RSS 2.0', true);
-define('ATOM', 'ATOM', true);
+define('RSS2', 1, true);
+define('JSON', 2, true);
 
  /**
  * Univarsel Feed Writer class
  *
- * Genarate RSS 1.0, RSS2.0 and ATOM Feed.
+ * Genarate RSS2 or JSON (original: RSS 1.0, RSS2.0 and ATOM Feed)
+ *
  * Modified for FiveFilters.org's Full-Text RSS project
- * to allow for inclusion of hubs
+ * to allow for inclusion of hubs, JSON output. 
+ * Stripped RSS1 and ATOM support.
  *                             
  * @package     UnivarselFeedWriter
  * @author      Anis uddin Ahmad <anisniit@gmail.com>
@@ -27,13 +24,14 @@ define('ATOM', 'ATOM', true);
 	 private $data          = array();  // Store some other version wise data
 	 private $CDATAEncoding = array();  // The tag names which have to encoded as CDATA
 	 private $xsl			= null;		// stylesheet to render RSS (used by Chrome)
+	 private $json			= null;		// JSON object
 	 
 	 private $version   = null; 
 	
 	/**
 	* Constructor
 	* 
-	* @param    constant    the version constant (RSS1/RSS2/ATOM).       
+	* @param    constant    the version constant (RSS2 or JSON).       
 	*/ 
 	function __construct($version = RSS2)
 	{	
@@ -45,6 +43,10 @@ define('ATOM', 'ATOM', true);
 				
 		//Tag names to encode in CDATA
 		$this->CDATAEncoding = array('description', 'content:encoded', 'content', 'subtitle', 'summary');
+	}
+	
+	public function setFormat($format) {
+		$this->version = $format;
 	}
 
 	// Start # public functions ---------------------------------------------
@@ -79,19 +81,26 @@ define('ATOM', 'ATOM', true);
 	}
 	
 	/**
-	* Genarate the actual RSS/ATOM file
+	* Genarate the actual RSS/JSON file
 	* 
 	* @access   public
 	* @return   void
 	*/ 
 	public function genarateFeed()
 	{
-		header("Content-type: text/xml; charset=UTF-8");
-		
+		if ($this->version == RSS2) {
+			header('Content-type: text/xml; charset=UTF-8');
+		} elseif ($this->version == JSON) {
+			header('Content-type: application/json; charset=UTF-8');
+			$this->json = new stdClass();
+		}
 		$this->printHead();
 		$this->printChannels();
 		$this->printItems();
 		$this->printTale();
+		if ($this->version == JSON) {
+			echo json_encode($this->json);
+		}
 	}
 	
 	/**
@@ -207,36 +216,6 @@ define('ATOM', 'ATOM', true);
 		$this->setChannelElement('image', array('title'=>$title, 'link'=>$link, 'url'=>$url));
 	}
 	
-	/**
-	* Set the 'about' channel element. Only for RSS 1.0
-	* 
-	* @access   public
-	* @param    srting  value of 'about' channel tag
-	* @return   void
-	*/
-	public function setChannelAbout($url)
-	{
-		$this->data['ChannelAbout'] = $url;    
-	}
-	
-  /**
-  * Genarates an UUID
-  * @author     Anis uddin Ahmad <admin@ajaxray.com>
-  * @param      string  an optional prefix
-  * @return     string  the formated uuid
-  */
-  public function uuid($key = null, $prefix = '') 
-  {
-	$key = ($key == null)? uniqid(rand()) : $key;
-	$chars = md5($key);
-	$uuid  = substr($chars,0,8) . '-';
-	$uuid .= substr($chars,8,4) . '-';
-	$uuid .= substr($chars,12,4) . '-';
-	$uuid .= substr($chars,16,4) . '-';
-	$uuid .= substr($chars,20,12);
-
-	return $prefix . $uuid;
-  }
 	// End # public functions ----------------------------------------------
 	
 	// Start # private functions ----------------------------------------------
@@ -249,26 +228,17 @@ define('ATOM', 'ATOM', true);
 	*/
 	private function printHead()
 	{
-		$out  = '<?xml version="1.0" encoding="utf-8"?>' . "\n";
-		
-		if($this->version == RSS2)
+		if ($this->version == RSS2)
 		{
+			$out  = '<?xml version="1.0" encoding="utf-8"?>'."\n";
 			if ($this->xsl) $out .= '<?xml-stylesheet type="text/xsl" href="'.htmlspecialchars($this->xsl).'"?>' . PHP_EOL;
-			$out .= '<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">' . PHP_EOL;
-		}    
-		elseif($this->version == RSS1)
-		{
-			$out .= '<rdf:RDF 
-					 xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
-					 xmlns="http://purl.org/rss/1.0/"
-					 xmlns:dc="http://purl.org/dc/elements/1.1/"
-					>' . PHP_EOL;;
+			$out .= '<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/">' . PHP_EOL;
+			echo $out;
 		}
-		else if($this->version == ATOM)
+		elseif ($this->version == JSON)
 		{
-			$out .= '<feed xmlns="http://www.w3.org/2005/Atom">' . PHP_EOL;;
+			$this->json->rss = array('@attributes' => array('version' => '2.0'));
 		}
-		echo $out;
 	}
 	
 	/**
@@ -279,70 +249,83 @@ define('ATOM', 'ATOM', true);
 	*/
 	private function printTale()
 	{
-		if($this->version == RSS2)
+		if ($this->version == RSS2)
 		{
-			echo '</channel>' . PHP_EOL . '</rss>'; 
+			echo '</channel>',PHP_EOL,'</rss>'; 
 		}    
-		elseif($this->version == RSS1)
-		{
-			echo '</rdf:RDF>';
-		}
-		else if($this->version == ATOM)
-		{
-			echo '</feed>';
-		}
-	  
+		// do nothing for JSON
 	}
 
 	/**
 	* Creates a single node as xml format
 	* 
 	* @access   private
-	* @param    srting  name of the tag
+	* @param    string  name of the tag
 	* @param    mixed   tag value as string or array of nested tags in 'tagName' => 'tagValue' format
 	* @param    array   Attributes(if any) in 'attrName' => 'attrValue' format
 	* @return   string  formatted xml tag
 	*/
 	private function makeNode($tagName, $tagContent, $attributes = null)
 	{        
-		$nodeText = '';
-		$attrText = '';
-
-		if(is_array($attributes))
+		if ($this->version == RSS2)
 		{
-			foreach ($attributes as $key => $value) 
+			$nodeText = '';
+			$attrText = '';
+			if (is_array($attributes))
 			{
-				$attrText .= " $key=\"$value\" ";
+				foreach ($attributes as $key => $value) 
+				{
+					$attrText .= " $key=\"$value\" ";
+				}
+			}
+			$nodeText .= "<{$tagName}{$attrText}>";
+			if (is_array($tagContent))
+			{ 
+				foreach ($tagContent as $key => $value) 
+				{
+					$nodeText .= $this->makeNode($key, $value);
+				}
+			}
+			else
+			{
+				//$nodeText .= (in_array($tagName, $this->CDATAEncoding))? $tagContent : htmlentities($tagContent);
+				$nodeText .= htmlspecialchars($tagContent);
+			}           
+			//$nodeText .= (in_array($tagName, $this->CDATAEncoding))? "]]></$tagName>" : "</$tagName>";
+			$nodeText .= "</$tagName>";
+			return $nodeText . PHP_EOL;
+		}
+		elseif ($this->version == JSON)
+		{
+			$tagName = (string)$tagName;
+			$tagName = strtr($tagName, ':', '_');
+			$node = null;
+			if (!$tagContent && is_array($attributes) && count($attributes))
+			{
+				$node = array('@attributes' => $this->json_keys($attributes));
+			} else {
+				if (is_array($tagContent)) {
+					$node = $this->json_keys($tagContent);
+				} else {
+					$node = $tagContent;
+				}
+			}
+			return $node;
+		}
+		return ''; // should not get here
+	}
+	
+	private function json_keys(array $array) {
+		$new = array();
+		foreach ($array as $key => $val) {
+			if (is_string($key)) $key = strtr($key, ':', '_');
+			if (is_array($val)) {
+				$new[$key] = $this->json_keys($val);
+			} else {
+				$new[$key] = $val;
 			}
 		}
-		
-		if(is_array($tagContent) && $this->version == RSS1)
-		{
-			$attrText = ' rdf:parseType="Resource"';
-		}
-		
-		
-		$attrText .= (in_array($tagName, $this->CDATAEncoding) && $this->version == ATOM)? ' type="html" ' : '';
-		//$nodeText .= (in_array($tagName, $this->CDATAEncoding))? "<{$tagName}{$attrText}><![CDATA[" : "<{$tagName}{$attrText}>";
-		$nodeText .= "<{$tagName}{$attrText}>";
-		 
-		if(is_array($tagContent))
-		{ 
-			foreach ($tagContent as $key => $value) 
-			{
-				$nodeText .= $this->makeNode($key, $value);
-			}
-		}
-		else
-		{
-			//$nodeText .= (in_array($tagName, $this->CDATAEncoding))? $tagContent : htmlentities($tagContent);
-			$nodeText .= htmlspecialchars($tagContent);
-		}           
-			
-		//$nodeText .= (in_array($tagName, $this->CDATAEncoding))? "]]></$tagName>" : "</$tagName>";
-		$nodeText .= "</$tagName>";
-
-		return $nodeText . PHP_EOL;
+		return $new;
 	}
 	
 	/**
@@ -367,39 +350,15 @@ define('ATOM', 'ATOM', true);
 					//echo $this->makeNode('link', '', array('rel'=>'self', 'href'=>$this->self, 'xmlns'=>'http://www.w3.org/2005/Atom'));
 					echo '<link rel="self" href="'.htmlspecialchars($this->self).'" xmlns="http://www.w3.org/2005/Atom" />' . PHP_EOL;
 				}
+				//Print Items of channel
+				foreach ($this->channels as $key => $value) 
+				{
+					echo $this->makeNode($key, $value);
+				}
 				break;
-		   case RSS1: 
-				echo (isset($this->data['ChannelAbout']))? "<channel rdf:about=\"{$this->data['ChannelAbout']}\">" : "<channel rdf:about=\"{$this->channels['link']}\">";
+		   case JSON: 
+				$this->json->rss['channel'] = (object)$this->json_keys($this->channels);
 				break;
-		}
-		
-		//Print Items of channel
-		foreach ($this->channels as $key => $value) 
-		{
-			if($this->version == ATOM && $key == 'link') 
-			{
-				// ATOM prints link element as href attribute
-				echo $this->makeNode($key,'',array('href'=>$value));
-				//Add the id for ATOM
-				echo $this->makeNode('id',$this->uuid($value,'urn:uuid:'));
-			}
-			else
-			{
-				echo $this->makeNode($key, $value);
-			}    
-			
-		}
-		
-		//RSS 1.0 have special tag <rdf:Seq> with channel 
-		if($this->version == RSS1)
-		{
-			echo "<items>" . PHP_EOL . "<rdf:Seq>" . PHP_EOL;
-			foreach ($this->items as $item) 
-			{
-				$thisItems = $item->getElements();
-				echo "<rdf:li resource=\"{$thisItems['link']['content']}\"/>" . PHP_EOL;
-			}
-			echo "</rdf:Seq>" . PHP_EOL . "</items>" . PHP_EOL . "</channel>" . PHP_EOL;
 		}
 	}
 	
@@ -415,14 +374,28 @@ define('ATOM', 'ATOM', true);
 		{
 			$thisItems = $item->getElements();
 			
-			//the argument is printed as rdf:about attribute of item in rss 1.0 
-			echo $this->startItem($thisItems['link']['content']);
+			echo $this->startItem();
+			
+			if ($this->version == JSON) {
+				$json_item = array();
+			}
 			
 			foreach ($thisItems as $feedItem ) 
 			{
-				echo $this->makeNode($feedItem['name'], $feedItem['content'], $feedItem['attributes']); 
+				if ($this->version == RSS2) {
+					echo $this->makeNode($feedItem['name'], $feedItem['content'], $feedItem['attributes']);
+				} elseif ($this->version == JSON) {
+					$json_item[strtr($feedItem['name'], ':', '_')] = $this->makeNode($feedItem['name'], $feedItem['content'], $feedItem['attributes']);
+				}
 			}
 			echo $this->endItem();
+			if ($this->version == JSON) {
+				if (count($this->items) > 1) {
+					$this->json->rss['channel']->item[] = $json_item;
+				} else {
+					$this->json->rss['channel']->item = $json_item;
+				}
+			}
 		}
 	}
 	
@@ -430,30 +403,15 @@ define('ATOM', 'ATOM', true);
 	* Make the starting tag of channels
 	* 
 	* @access   private
-	* @param    srting  The vale of about tag which is used for only RSS 1.0
 	* @return   void
 	*/
-	private function startItem($about = false)
+	private function startItem()
 	{
-		if($this->version == RSS2)
+		if ($this->version == RSS2)
 		{
 			echo '<item>' . PHP_EOL; 
 		}    
-		elseif($this->version == RSS1)
-		{
-			if($about)
-			{
-				echo "<item rdf:about=\"$about\">" . PHP_EOL;
-			}
-			else
-			{
-				die('link element is not set .\n It\'s required for RSS 1.0 to be used as about attribute of item');
-			}
-		}
-		else if($this->version == ATOM)
-		{
-			echo "<entry>" . PHP_EOL;
-		}    
+		// nothing for JSON
 	}
 	
 	/**
@@ -464,18 +422,12 @@ define('ATOM', 'ATOM', true);
 	*/
 	private function endItem()
 	{
-		if($this->version == RSS2 || $this->version == RSS1)
+		if ($this->version == RSS2)
 		{
 			echo '</item>' . PHP_EOL; 
 		}    
-		else if($this->version == ATOM)
-		{
-			echo "</entry>" . PHP_EOL;
-		}
+		// nothing for JSON
 	}
 	
-
-	
 	// End # private functions ----------------------------------------------
-	
- } // end of class FeedWriter
+ }
