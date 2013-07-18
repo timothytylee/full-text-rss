@@ -5,7 +5,7 @@ Full-Text RSS
 
 This is a our public version of Full-Text RSS available to download for free from <http://code.fivefilters.org>.
 
-To sustain the project we sell copies of the most up-to-date version at <http://fivefilters.org/content-only/#download> - so if you like this, please consider supporting us by purchasing the latest release. We also accept donations via [Gittip](https://www.gittip.com/fivefilters/).
+For best extraction results, and to help us sustain the project, you can purchase the most up-to-date version at <http://fivefilters.org/content-only/#download> - so if you like this free version, please consider supporting us by purchasing the latest release. If you have no need for the latest release, but would still like to contribute something, you can donate via [Gittip](https://www.gittip.com/fivefilters/) or [Flattr](https://flattr.com/profile/k1m).
 
 ### About
 
@@ -29,7 +29,17 @@ See <http://fivefilters.org/content-only/> for a description of the code.
 
 2. If you decide to enable caching, make sure the cache folder (and its 2 sub folders) is writable. (You might need to change the permissions of these folders to 777 through your FTP client.)
 
-### Code example
+### Site-specific extraction rules
+
+This free version does not contain the site config files we include with purchased copies, but these are now all available [online](https://github.com/fivefilters/ftr-site-config). If you’d like to keep yours up to date using Git, follow the steps below:
+
+1. Change into the site_config/standard/ folder
+2. Delete everything in there
+3. Using the command line, enter: `git clone https://github.com/fivefilters/ftr-site-config.git .`
+4. Git should now download the latest site config files for you.
+5. To update the site config files again, you can simply run `git pull` from the directory.
+
+### Code example (PHP)
 
 	<?php
 	// $ftr should be URL where you installed this application
@@ -58,3 +68,13 @@ See <http://fivefilters.org/content-only/> for a description of the code.
 	// If the input URL is a feed, ->item will be an array.
 
 	echo $title;
+
+### Different language?
+
+Although we don't have examples in other programming languages, the essential steps should be:
+
+1. Construct the request URL using URL where you installed Full-Text RSS and the article or feed URL (see $ftr, $article, $request in example above).
+
+2. Fetch the resulting URL using an HTTP GET request.
+
+3. Parse the HTTP response body as JSON and grab what you need.
