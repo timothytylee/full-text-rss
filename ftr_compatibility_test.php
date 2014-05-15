@@ -8,12 +8,15 @@ to it at www.example.com/ftr_compatibility_test.php
 
 2) Open your web browser and go to the page you just uploaded.
 
+If things don't look right, have a look at our hosting suggestions:
+http://help.fivefilters.org/customer/portal/articles/1143210-hosting
+
 Note: This compatibility test has been borrowed (and slightly adapted) from the one supplied by 
 SimplePie.org. We have kept most of their checks intact as we use SimplePie in our application.
 http://github.com/simplepie/simplepie/tree/master/compatibility_test/
 */
 
-$app_name = 'Full-Text RSS 3.1';
+$app_name = 'Full-Text RSS 3.2';
 
 $php_ok = (function_exists('version_compare') && version_compare(phpversion(), '5.2.0', '>='));
 $pcre_ok = extension_loaded('pcre');
@@ -129,33 +132,33 @@ em strong {
     text-transform: uppercase;
 }
 
-table#chart {
+table.chart {
 	border-collapse:collapse;
 }
 
-table#chart th {
+table.chart th {
 	background-color:#eee;
 	padding:2px 3px;
 	border:1px solid #fff;
 }
 
-table#chart td {
+table.chart td {
 	text-align:center;
 	padding:2px 3px;
 	border:1px solid #eee;
 }
 
-table#chart tr.enabled td {
+table.chart tr.enabled td {
 	/* Leave this alone */
 }
 
-table#chart tr.disabled td, 
-table#chart tr.disabled td a {
+table.chart tr.disabled td, 
+table.chart tr.disabled td a {
 	color:#999;
 	font-style:italic;
 }
 
-table#chart tr.disabled td a {
+table.chart tr.disabled td a {
 	text-decoration:underline;
 }
 
@@ -186,7 +189,7 @@ div.chunk {
 
 		<div class="chunk">
 			<h2 style="text-align:center;"><?php echo $app_name; ?>: Compatibility Test</h2>
-			<table cellpadding="0" cellspacing="0" border="0" width="100%" id="chart">
+			<table cellpadding="0" cellspacing="0" border="0" width="100%" class="chart">
 				<thead>
 					<tr>
 						<th>Test</th>
@@ -253,7 +256,7 @@ div.chunk {
 				</tbody>
 			</table>
 		</div>
-
+		
 		<div class="chunk">
 			<h3>What does this mean?</h3>
 			<ol>
@@ -292,7 +295,7 @@ div.chunk {
 										<?php if ($tidy_ok): ?>
 											<li><strong>Tidy:</strong> You have <code>Tidy</code> support installed.  No problems here.</li>
 										<?php else: ?>
-											<li class="highlight"><strong>Tidy:</strong> The <code>Tidy</code> extension is not available.  <?php echo $app_name; ?> should still work with most feeds/articles, but you may experience problems with some. If you do, we suggest you specify parsing with html5lib.</li>
+											<li class="highlight"><strong>Tidy:</strong> The <code>Tidy</code> extension is not available.  <?php echo $app_name; ?> should still work with most feeds/articles, but you may experience problems with some.</li>
 										<?php endif; ?>
 										
 										<?php if ($curl_ok): ?>
@@ -341,12 +344,58 @@ div.chunk {
 				<p><strong>Note</strong>: Passing this test does not guarantee that <?php echo $app_name; ?> will run on your webhost &mdash; it only ensures that the basic requirements have been addressed. If you experience any problems, please let us know.</p>
 			<?php } else { ?>
 				<h3>Bottom Line: We're sorry…</h3>
-				<p><em>Your webhost does not support the minimum requirements for <?php echo $app_name; ?>.</em>  It may be a good idea to contact your webhost and point them to the results of this test. They may be able to enable/install the required components.</p>
+				<p><em>Your webhost does not support the minimum requirements for <?php echo $app_name; ?>.</em>  It may be a good idea to contact your webhost and point them to the results of this test. They may be able to enable/install the required components.</p> <p>Alternatively, you can try one of our <a href="http://help.fivefilters.org/customer/portal/articles/1143210-hosting">recommended hosts</a>.</p>
 			<?php } ?>
 		</div>
 
 		<div class="chunk">
+			<h3>Further info</h3>
+			<h4>HTTP module</h4>
+			<p>Full-Text RSS can make use of <code>HttpRequestPool</code> or <code>curl_multi</code> to make parallel HTTP requests when processing feeds. If neither are available, it will make sequential requests using <code>file_get_contents</code>.</p>
+			<?php 
+			$http_type = 'file_get_contents';
+			if (extension_loaded('http') && class_exists('HttpRequestPool')) {
+				$http_type = 'HttpRequestPool';
+			} elseif ($curl_ok && function_exists('curl_multi_init')) {
+				$http_type = 'curl_multi';
+			}
+			?>
+			<p class="highlight"><strong><?php echo $http_type; ?></strong> will be used on this server.</p>
+			
+			<h4>Alternative PHP Cache (APC)</h4>
+			<p>Full-Text RSS can make use of APC's memory cache to store site config files (when requested for the first time). This is not required, but if available it may improve performance slightly by reducing disk access.</p>
+			<?php
+			if (function_exists('apc_add')) {
+				echo '<p class="highlight"><strong>APC is available</strong> on this server.</p>';
+			} else {
+				echo '<p class="highlight">APC is not available on this server.</p>';
+			}
+			?>
+			
+			<h4>Language detection</h4>
+			<p>Full-Text RSS can detect the language of each article processed. This occurs using <a href="http://pear.php.net/package/Text_LanguageDetect">Text_LanguageDetect</a> or <a href="https://github.com/lstrojny/php-cld">PHP-CLD</a> (if available).</p>
+			<?php
+			if (extension_loaded('cld') && (version_compare(PHP_VERSION, '5.3.0') >= 0)) {
+				echo '<p class="highlight"><strong>PHP-CLD</strong> will be used on this server.</p>';
+			} else {
+				echo '<p class="highlight"><strong>Text_LanguageDetect</strong> will be used on this server.</p>';
+			}
+			?>
+			
+			<h4>Automatic site config updates</h4>
+			<p>Full-Text RSS can be configured to update its site config files (which determine how content should be extracted for certain sites) by downloading the latest set from our GitHub repository. This functionaility is not required, and can be done manually. To configure this to occur automatically, you will need zip support enabled in PHP - we make use of the ZipArchive class.</p>
+			<?php
+			if (!class_exists('ZipArchive')) {
+				echo '<p class="highlight">ZipArchive is not available on this server. To update the site config files you will need to do it manually by downloading the latest set and uploading it to your server.</p>';
+			} else {
+				echo '<p class="highlight"><strong>ZipArchive is available</strong> on this server.</p>';
+			}
+			?>			
+		</div>
+		
+		<div class="chunk">
 			<p class="footnote">This compatibility test has been borrowed (and slightly adapted) from the one supplied by <a href="http://simplepie.org/">SimplePie.org</a>. We have kept most of their checks intact as we use SimplePie in our application.</a></p>
+			<p class="footnote">Date: <?php echo date('Y-m-d'); ?></p>
 		</div>
 
 	</div>

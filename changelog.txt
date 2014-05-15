@@ -2,11 +2,24 @@ FiveFilters.org: Full-Text RSS
 http://fivefilters.org/content-only/
 CHANGELOG
 ------------------------------------
+3.2 (2013-05-14)
+ - A short excerpt from the first few lines of the extracted content can now be included in the output (pass &summary=1 in querystring, see $options->summary in config file for more info)
+ - Full content can now be excluded from the output (pass &content=0 in querystring, see $options->content in config file for more info) 
+ - Site config files can now be automatically updated from our GitHub repository (URL to call visible in admin area)
+ - Site config files updated for better extraction
+ - PHP Readability updated to be more lenient when pruning HTML 
+ - Language detection library updated
+ - HTML meta refresh redirects now also followed
+ - APC stats (if APC is available on your server) now visible in admin area
+ - Bug fix: Duplicate find_string and replace_string values in site config files no longer removed (thanks Fabrizio!)
+ - Bug fix: MIME type actions now applied when following single page URLs
+ - Other minor fixes/improvements
+
 3.1 (2013-03-06)
  - PHP Readability updated to preserve more images/videos
  - Site config files updated for better extraction
  - SimplePie updated
- - New site config option favour_feed_titles and request parameter use_extracted_title to allow extracted titles to be used in generated feed
+ - New config option favour_feed_titles and request parameter use_extracted_title to allow extracted titles to be used in generated feed
  - Remove image lazy loading (looks for markup used by http://wordpress.org/extend/plugins/lazy-load/)
  - <category> elements appearing inside <item> elements are now preserved in generated feed
  - <media:thumbnail> elements now preserved

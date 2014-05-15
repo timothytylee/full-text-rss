@@ -3,7 +3,7 @@
 // Author: Keyvan Minoukadeh
 // Copyright (c) 2013 Keyvan Minoukadeh
 // License: AGPLv3
-// Date: 2013-02-25
+// Date: 2013-05-09
 // More info: http://fivefilters.org/content-only/
 // Help: http://help.fivefilters.org
 
@@ -57,7 +57,7 @@ require_once('require_login.php');
 require_once('template.php');
 tpl_header('Edit site patterns');
 
-$version = include('../site_config/standard/version.php');
+$version = file_get_contents('../site_config/standard/version.txt');
 
 function filter_only_text($filename) {
 	return (strtolower(substr($filename, -4)) == '.txt');

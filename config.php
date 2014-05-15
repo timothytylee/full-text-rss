@@ -45,6 +45,60 @@ $options->default_entries = 5;
 // 10, only 10 will be processed.
 $options->max_entries = 10;
 
+// Full content
+// ----------------------
+// By default Full-Text RSS includes the extracted content in the output.
+// You can exclude this from the output by passing '&content=0' in the querystring.
+// 
+// Possible values...
+// Always include: true
+// Never include: false
+// Include unless user overrides (&content=0): 'user' (default)
+//
+// Note: currently this does not disable full content extraction. It simply omits it
+// from the output.
+$options->content = 'user';
+
+// Excerpts
+// ----------------------
+// By default Full-Text RSS does not include excerpts in the output.
+// You can enable this by passing '&summary=1' in the querystring.
+// This will include a plain text excerpt from the extracted content.
+// 
+// Possible values...
+// Always include: true (recommended for new users)
+// Never include: false
+// Don't include unless user overrides (&summary=1): 'user' (default)
+//
+// Important: if both content and excerpts are requested, the excerpt will be
+// placed in the description element and the full content inside content:encoded.
+// If excerpts are not requested, the full content will go inside the description element.
+// 
+// Why are we not returning both excerpts and content by default?
+// Mainly for backward compatibility.
+// Excerpts should appear in the feed item's description element. Previous versions 
+// of Full-Text RSS did not return excerpts, so the description element was always 
+// used for the full content (as recommended by the RSS advisory). When returning both, 
+// we need somewhere else to place the content (content:encoded). 
+// Having both enabled should not create any problems for news readers, but it may create
+// problems for developers upgrading from one of our earlier versions who may now find
+// their applications are returning excerpts instead of the full content they were
+// expecting. To avoid such surprises for users who are upgrading Full-Text RSS, 
+// excerpts must be explicitly requested in the querystring by default.
+// 
+// Why not use a different element name for excerpts?
+// According to the RSS advisory: 
+// "Publishers who employ summaries should store the summary in description and 
+// the full content in content:encoded, ordering description first within the item. 
+// On items with no summary, the full content should be stored in description."
+// See: http://www.rssboard.org/rss-profile#namespace-elements-content-encoded
+// 
+// For more consistent element naming, we recommend new users set this option to true.
+// The full content can still be excluded via the querystring, but the element names
+// will not change: when $options->summary = true, the description element will always
+// be reserved for the excerpt and content:encoded always for full content.
+$options->summary = 'user';
+
 // Rewrite relative URLs
 // ----------------------
 // With this enabled relative URLs found in the extracted content
@@ -373,7 +427,7 @@ $options->cache_cleanup = 100;
 /// DO NOT CHANGE ANYTHING BELOW THIS ///////////
 /////////////////////////////////////////////////
 
-if (!defined('_FF_FTR_VERSION')) define('_FF_FTR_VERSION', '3.1');
+if (!defined('_FF_FTR_VERSION')) define('_FF_FTR_VERSION', '3.2');
 
 if (basename(__FILE__) == 'config.php') {
 	if (file_exists(dirname(__FILE__).'/custom_config.php')) {

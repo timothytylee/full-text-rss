@@ -115,7 +115,16 @@ if (!defined('_FF_FTR_INDEX')) {
 	</div>
 	<?php } ?>
 	
+	<?php if ($options->summary == 'user') { ?>
 	<div class="control-group">
+	<label class="control-label" for="summary">Include excerpt</label>
+	<div class="controls">
+	<input type="checkbox" name="summary" value="1" id="summary" style="margin-top: 7px;" />
+	</div>
+	</div>
+	<?php } ?>
+
+	<div class="control-group" style="margin-top: -15px;">
 	<label class="control-label" for="json">JSON output</label>
 	<div class="controls">
 	<input type="checkbox" name="format" value="json" id="json" style="margin-top: 7px;" />
@@ -170,7 +179,7 @@ if (!defined('_FF_FTR_INDEX')) {
 	<p><?php if (!file_exists('custom_config.php')) { ?>To change the configuration, save a copy of <tt>config.php</tt> as <tt>custom_config.php</tt> and make any changes you like to it.<?php } else { ?>To change the configuration, edit <tt>custom_config.php</tt> and make any changes you like.<?php } ?></p>
 
 	<h3>Manage and update site config files</h3>
-	<p>For best results, we suggest you update the site config files bundled with Full-Text RSS. If you've purchased Full-Text RSS from us, you'll receive an email when these are updated.</p>
+	<p>For best results, we suggest you update the site config files bundled with Full-Text RSS.</p>
 	<p>The easiest way to update these is via the <a href="admin/">admin area</a>. (For advanced users, you'll also be able to edit and test the extraction rules contained in the site config files from the admin area.)</p>
 
 	<h3>Customise this page</h3>
@@ -253,9 +262,9 @@ if (!defined('_FF_FTR_INDEX')) {
 	<!-- UPDATES TAB -->
 	<div id="updates" class="tab-pane">
 	<?php 
-	$site_config_version_file = dirname(__FILE__).'/site_config/standard/version.php';
+	$site_config_version_file = dirname(__FILE__).'/site_config/standard/version.txt';
 	if (file_exists($site_config_version_file)) {
-		$site_config_version = include($site_config_version_file);
+		$site_config_version = file_get_contents($site_config_version_file);
 	}
 	?>
 	<p>Your version of Full-Text RSS: <strong><?php echo _FF_FTR_VERSION; ?></strong><br />
