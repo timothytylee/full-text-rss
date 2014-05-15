@@ -1,9 +1,9 @@
 <?php
 // Edit site config files for Full-Text RSS
 // Author: Keyvan Minoukadeh
-// Copyright (c) 2012 Keyvan Minoukadeh
+// Copyright (c) 2013 Keyvan Minoukadeh
 // License: AGPLv3
-// Date: 2012-08-30
+// Date: 2013-02-25
 // More info: http://fivefilters.org/content-only/
 // Help: http://help.fivefilters.org
 
@@ -29,6 +29,22 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 error_reporting(E_ALL ^ E_NOTICE);
 ini_set("display_errors", 1);
 @set_time_limit(120);
+
+if (get_magic_quotes_gpc()) {
+    $process = array(&$_GET, &$_POST, &$_COOKIE, &$_REQUEST);
+    while (list($key, $val) = each($process)) {
+        foreach ($val as $k => $v) {
+            unset($process[$key][$k]);
+            if (is_array($v)) {
+                $process[$key][stripslashes($k)] = $v;
+                $process[] = &$process[$key][stripslashes($k)];
+            } else {
+                $process[$key][stripslashes($k)] = stripslashes($v);
+            }
+        }
+    }
+    unset($process);
+}
 
 require_once '../libraries/content-extractor/SiteConfig.php';
 

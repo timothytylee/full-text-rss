@@ -13,7 +13,7 @@ SimplePie.org. We have kept most of their checks intact as we use SimplePie in o
 http://github.com/simplepie/simplepie/tree/master/compatibility_test/
 */
 
-$app_name = 'Full-Text RSS 3.0';
+$app_name = 'Full-Text RSS 3.1';
 
 $php_ok = (function_exists('version_compare') && version_compare(phpversion(), '5.2.0', '>='));
 $pcre_ok = extension_loaded('pcre');

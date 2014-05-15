@@ -373,9 +373,8 @@ define('JSONP', 3, true);
 	*/
 	private function printItems()
 	{    
-		foreach ($this->items as $item) 
-		{
-			$thisItems = $item->getElements();
+		foreach ($this->items as $item) {
+			$itemElements = $item->getElements();
 			
 			echo $this->startItem();
 			
@@ -383,12 +382,18 @@ define('JSONP', 3, true);
 				$json_item = array();
 			}
 			
-			foreach ($thisItems as $feedItem ) 
-			{
-				if ($this->version == RSS2) {
-					echo $this->makeNode($feedItem['name'], $feedItem['content'], $feedItem['attributes']);
-				} elseif ($this->version == JSON || $this->version == JSONP) {
-					$json_item[strtr($feedItem['name'], ':', '_')] = $this->makeNode($feedItem['name'], $feedItem['content'], $feedItem['attributes']);
+			foreach ($itemElements as $thisElement) {
+				foreach ($thisElement as $instance) {			
+					if ($this->version == RSS2) {
+						echo $this->makeNode($instance['name'], $instance['content'], $instance['attributes']);
+					} elseif ($this->version == JSON || $this->version == JSONP) {
+						$_json_node = $this->makeNode($instance['name'], $instance['content'], $instance['attributes']);
+						if (count($thisElement) > 1) {
+							$json_item[strtr($instance['name'], ':', '_')][] = $_json_node;
+						} else {
+							$json_item[strtr($instance['name'], ':', '_')] = $_json_node;
+						}
+					}
 				}
 			}
 			echo $this->endItem();

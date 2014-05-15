@@ -172,6 +172,22 @@ $options->blocked_urls = array();
 // key is provided.
 $options->key_required = false;
 
+// Favour item titles in feed
+// ----------------------
+// By default, when processing feeds, we assume item titles in the feed
+// have not been truncated. So after processing web pages, the extracted titles
+// are not used in the generated feed. If you prefer to have extracted titles in 
+// the feed you can either set this to false, in which case we will always favour 
+// extracted titles. Alternatively, if set to 'user' (default) we'll use the 
+// extracted title if you pass '&use_extracted_title' in the querystring.
+// Possible values:
+// * Favour feed titles: true 
+// * Favour extracted titles: false
+// * Favour feed titles with user override: 'user' (default)
+// Note: this has no effect when the input URL is to a web page - in these cases
+// we always use the extracted title in the generated feed.
+$options->favour_feed_titles = 'user';
+
 // Access keys (password protected access)
 // ------------------------------------
 // NOTE: You do not need an API key from fivefilters.org to run your own 
@@ -299,7 +315,8 @@ $options->user_agents = array( 'lifehacker.com' => 'PHP/5.2',
 							   'jalopnik.com' => 'PHP/5.2',
 							   'gizmodo.com' => 'PHP/5.2',
 							   '.wikipedia.org' => 'Mozilla/5.2',
-							   '.fok.nl' => 'Googlebot/2.1'
+							   '.fok.nl' => 'Googlebot/2.1',
+							   'getpocket.com' => 'PHP/5.2'
 							  );
 
 // URL Rewriting
@@ -315,7 +332,8 @@ $options->rewrite_url = array(
 	// if a URL contains docs.google.com, replace /Doc? with /View?
 	'docs.google.com' => array('/Doc?' => '/View?'),
 	'tnr.com' => array('tnr.com/article/' => 'tnr.com/print/article/'),
-	'.m.wikipedia.org' => array('.m.wikipedia.org' => '.wikipedia.org')
+	'.m.wikipedia.org' => array('.m.wikipedia.org' => '.wikipedia.org'),
+	'm.vanityfair.com' => array('m.vanityfair.com' => 'www.vanityfair.com')
 );
 
 // Content-Type exceptions
@@ -355,7 +373,7 @@ $options->cache_cleanup = 100;
 /// DO NOT CHANGE ANYTHING BELOW THIS ///////////
 /////////////////////////////////////////////////
 
-if (!defined('_FF_FTR_VERSION')) define('_FF_FTR_VERSION', '3.0');
+if (!defined('_FF_FTR_VERSION')) define('_FF_FTR_VERSION', '3.1');
 
 if (basename(__FILE__) == 'config.php') {
 	if (file_exists(dirname(__FILE__).'/custom_config.php')) {

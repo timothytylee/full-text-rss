@@ -2,6 +2,19 @@ FiveFilters.org: Full-Text RSS
 http://fivefilters.org/content-only/
 CHANGELOG
 ------------------------------------
+3.1 (2013-03-06)
+ - PHP Readability updated to preserve more images/videos
+ - Site config files updated for better extraction
+ - SimplePie updated
+ - New site config option favour_feed_titles and request parameter use_extracted_title to allow extracted titles to be used in generated feed
+ - Remove image lazy loading (looks for markup used by http://wordpress.org/extend/plugins/lazy-load/)
+ - <category> elements appearing inside <item> elements are now preserved in generated feed
+ - <media:thumbnail> elements now preserved
+ - Allow multiple <media:content> elements (previously only one was preserved)
+ - Bug fix: No more self-closing iframe elements
+ - Bug fix: Fixed manifest.yml to prevent error message when deploying to AppFog
+ - Other minor fixes/improvements
+
 3.0 (2012-09-04)
  - Multi-page support - next_page_link now supported in site config (enable/disable with $options->multipage)
  - HTML5 parser available - use parser: html5lib in site config, also see $options->allowed_parsers

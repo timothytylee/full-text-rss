@@ -1,7 +1,7 @@
 ---
 applications:
   .:
-    name: full-text-rss
+#    name: full-text-rss
     framework:
       name: php
       info:
@@ -9,6 +9,6 @@ applications:
         description: PHP Application
         exec: 
     infra: aws
-    url: ${name}.${target-base}
+#    url: ${name}.${target-base}
     mem: 512M
     instances: 1

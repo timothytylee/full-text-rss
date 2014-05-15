@@ -5,10 +5,10 @@
  * Uses patterns specified in site config files and auto detection (hNews/PHP Readability) 
  * to extract content from HTML files.
  * 
- * @version 0.9
- * @date 2012-08-30
+ * @version 1.0
+ * @date 2013-02-05
  * @author Keyvan Minoukadeh
- * @copyright 2011 Keyvan Minoukadeh
+ * @copyright 2013 Keyvan Minoukadeh
  * @license http://www.gnu.org/licenses/agpl-3.0.html AGPL v3
  */
 
@@ -402,6 +402,7 @@ class ContentExtractor
 							$this->body->appendChild($elem);
 						}
 					}
+					if ($this->body->hasChildNodes()) break;
 				}
 			}
 		}		
@@ -646,6 +647,34 @@ class ContentExtractor
 						$this->body->removeChild($firstChild);
 				}
 			}
+			// prevent self-closing iframes
+			$elems = $this->body->getElementsByTagName('iframe');
+			for ($i = $elems->length-1; $i >= 0; $i--) {
+				$e = $elems->item($i);
+				if (!$e->hasChildNodes()) {
+					$e->appendChild($this->body->ownerDocument->createTextNode('[embedded content]'));
+				}
+			}
+			// remove image lazy loading - WordPress plugin http://wordpress.org/extend/plugins/lazy-load/
+			// the plugin replaces the src attribute to point to a 1x1 gif and puts the original src
+			// inside the data-lazy-src attribute. It also places the original image inside a noscript element 
+			// next to the amended one.
+			$elems = @$xpath->query("//img[@data-lazy-src]", $this->body);
+			for ($i = $elems->length-1; $i >= 0; $i--) {
+				$e = $elems->item($i);
+				// let's see if we can grab image from noscript
+				if ($e->nextSibling !== null && $e->nextSibling->nodeName === 'noscript') {
+					$_new_elem = $e->ownerDocument->createDocumentFragment();
+					@$_new_elem->appendXML($e->nextSibling->innerHTML);
+					$e->nextSibling->parentNode->replaceChild($_new_elem, $e->nextSibling);
+					$e->parentNode->removeChild($e);
+				} else {
+					// Use data-lazy-src as src value
+					$e->setAttribute('src', $e->getAttribute('data-lazy-src'));
+					$e->removeAttribute('data-lazy-src');
+				}
+			}
+		
 			$this->success = true;
 		}
 		

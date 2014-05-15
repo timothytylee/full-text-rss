@@ -1,10 +1,10 @@
 <?php
 // Full-Text RSS: Create Full-Text Feeds
 // Author: Keyvan Minoukadeh
-// Copyright (c) 2012 Keyvan Minoukadeh
+// Copyright (c) 2013 Keyvan Minoukadeh
 // License: AGPLv3
-// Version: 3.0
-// Date: 2012-08-30
+// Version: 3.1
+// Date: 2013-03-05
 // More info: http://fivefilters.org/content-only/
 // Help: http://help.fivefilters.org
 
@@ -35,6 +35,23 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 error_reporting(E_ALL ^ E_NOTICE);
 ini_set("display_errors", 1);
 @set_time_limit(120);
+
+// Deal with magic quotes
+if (get_magic_quotes_gpc()) {
+	$process = array(&$_GET, &$_POST, &$_REQUEST);
+	while (list($key, $val) = each($process)) {
+		foreach ($val as $k => $v) {
+			unset($process[$key][$k]);
+			if (is_array($v)) {
+				$process[$key][stripslashes($k)] = $v;
+				$process[] = &$process[$key][stripslashes($k)];
+			} else {
+				$process[$key][stripslashes($k)] = stripslashes($v);
+			}
+		}
+	}
+	unset($process);
+}
 
 // set include path
 set_include_path(realpath(dirname(__FILE__).'/libraries').PATH_SEPARATOR.get_include_path());
@@ -73,10 +90,7 @@ function autoload($class_name) {
 	}
 }
 spl_autoload_register('autoload');
-require dirname(__FILE__).'/libraries/simplepie/SimplePieAutoloader.php';
-// always include Simplepie_Core as it defines constants which other SimplePie components
-// assume will always be available.
-require dirname(__FILE__).'/libraries/simplepie/SimplePie/Core.php';
+require dirname(__FILE__).'/libraries/simplepie/autoloader.php';
 
 ////////////////////////////////
 // Load config file
@@ -184,8 +198,14 @@ if (isset($_GET['key']) && ($key_index = array_search($_GET['key'], $options->ap
 	if (isset($_GET['callback'])) $redirect .= '&callback='.urlencode($_GET['callback']);	
 	if (isset($_GET['l'])) $redirect .= '&l='.urlencode($_GET['l']);
 	if (isset($_GET['xss'])) $redirect .= '&xss';
+	if (isset($_GET['use_extracted_title'])) $redirect .= '&use_extracted_title';
 	if (isset($_GET['debug'])) $redirect .= '&debug';
-	header("Location: $redirect");
+	if ($debug_mode) {
+		debug('Redirecting to hide access key, follow URL below to continue');
+		debug("Location: $redirect");
+	} else {
+		header("Location: $redirect");
+	}
 	exit;
 }
 
@@ -252,6 +272,16 @@ if (isset($_GET['links']) && in_array($_GET['links'], array('preserve', 'footnot
 	$links = $_GET['links'];
 } else {
 	$links = 'preserve';
+}
+
+///////////////////////////////////////////////
+// Favour item titles in feed?
+///////////////////////////////////////////////
+$favour_feed_titles = true;
+if ($options->favour_feed_titles == 'user') {
+	$favour_feed_titles = !isset($_GET['use_extracted_title']);
+} else {
+	$favour_feed_titles = $options->favour_feed_titles;
 }
 
 ///////////////////////////////////////////////
@@ -334,7 +364,7 @@ if ($options->cors) header('Access-Control-Allow-Origin: *');
 //////////////////////////////////
 if ($options->caching) {
 	debug('Caching is enabled...');
-	$cache_id = md5($max.$url.$valid_key.$links.$xss_filter.$exclude_on_fail.$format.(int)isset($_GET['l']).(int)isset($_GET['pubsub']));
+	$cache_id = md5($max.$url.$valid_key.$links.$favour_feed_titles.$xss_filter.$exclude_on_fail.$format.$detect_language.(int)isset($_GET['pubsub']));
 	$check_cache = true;
 	if ($options->apc && $options->smart_cache) {
 		apc_add("cache.$cache_id", 0, 10*60);
@@ -461,13 +491,14 @@ if ($html_only || !$result) {
 		public $url;
 		function __construct($url) { $this->url = $url; }
 		public function get_permalink() { return $this->url; }
-		public function get_title() { return ''; }
+		public function get_title() { return null; }
 		public function get_date($format='') { return false; }
 		public function get_author($key=0) { return null; }
 		public function get_authors() { return null; }
 		public function get_description() { return ''; }
 		public function get_enclosure($key=0, $prefer=null) { return null; }
 		public function get_enclosures() { return null; }
+		public function get_categories() { return null; }
 	}
 	$feed = new DummySingleItemFeed($url);
 }
@@ -476,8 +507,8 @@ if ($html_only || !$result) {
 // Create full-text feed
 ////////////////////////////////////////////
 $output = new FeedWriter();
-$output->setTitle($feed->get_title());
-$output->setDescription($feed->get_description());
+$output->setTitle(strip_tags($feed->get_title()));
+$output->setDescription(strip_tags($feed->get_description()));
 $output->setXsl('css/feed.xsl'); // Chrome uses this, most browsers ignore it
 if ($valid_key && isset($_GET['pubsub'])) { // used only on fivefilters.org at the moment
 	$output->addHub('http://fivefilters.superfeedr.com/');
@@ -524,8 +555,13 @@ foreach ($items as $key => $item) {
 	$text_sample = null;
 	$permalink = $urls[$key];
 	debug("Item URL: $permalink");
+	$extracted_title = '';
+	$feed_item_title = $item->get_title();
+	if ($feed_item_title !== null) {
+		$feed_item_title = strip_tags(htmlspecialchars_decode($feed_item_title));
+	}
 	$newitem = $output->createNewItem();
-	$newitem->setTitle(htmlspecialchars_decode($item->get_title()));
+	$newitem->setTitle($feed_item_title);
 	if ($valid_key && isset($_GET['pubsub'])) { // used only on fivefilters.org at the moment
 		if ($permalink !== false) {
 			$newitem->setLink('http://fivefilters.org/content-only/redirect.php?url='.urlencode($permalink));
@@ -539,9 +575,9 @@ foreach ($items as $key => $item) {
 			$newitem->setLink($item->get_permalink());
 		}
 	}
-	// TODO: Allow error codes - some sites return correct content with error status
-	// e.g. prospectmagazine.co.uk returns 403
 	//if ($permalink && ($response = $http->get($permalink, true)) && $response['status_code'] < 300) {
+	// Allowing error codes - some sites return correct content with error status
+	// e.g. prospectmagazine.co.uk returns 403
 	if ($permalink && ($response = $http->get($permalink, true)) && ($response['status_code'] < 300 || $response['status_code'] > 400)) {
 		$effective_url = $response['effective_url'];
 		if (!url_allowed($effective_url)) continue;
@@ -556,7 +592,7 @@ foreach ($items as $key => $item) {
 				} else {
 					$html = "<a href=\"$effective_url\">Download {$mime_info['name']}</a>";
 				}
-				$title = $mime_info['name'];
+				$extracted_title = $mime_info['name'];
 				$do_content_extraction = false;
 			}
 		}
@@ -582,7 +618,7 @@ foreach ($items as $key => $item) {
 			$extract_result = $extractor->process($html, $effective_url);
 			$readability = $extractor->readability;
 			$content_block = ($extract_result) ? $extractor->getContent() : null;			
-			$title = ($extract_result) ? $extractor->getTitle() : '';
+			$extracted_title = ($extract_result) ? $extractor->getTitle() : '';
 			// Deal with multi-page articles
 			//die('Next: '.$extractor->getNextPageUrl());
 			$is_multi_page = (!$is_single_page && $extract_result && $extractor->getNextPageUrl());
@@ -635,8 +671,14 @@ foreach ($items as $key => $item) {
 		}
 		// use extracted title for both feed and item title if we're using single-item dummy feed
 		if ($isDummyFeed) {
-			$output->setTitle($title);
-			$newitem->setTitle($title);
+			$output->setTitle($extracted_title);
+			$newitem->setTitle($extracted_title);
+		} else {
+			// use extracted title instead of feed item title?
+			if (!$favour_feed_titles && $extracted_title != '') {
+				debug('Using extracted title in generated feed');
+				$newitem->setTitle($extracted_title);
+			}
 		}
 	}
 	if ($do_content_extraction) {
@@ -706,13 +748,17 @@ foreach ($items as $key => $item) {
 		// add authors
 		if ($authors = $item->get_authors()) {
 			foreach ($authors as $author) {
-				$newitem->addElement('dc:creator', $author->get_name());
+				// for some feeds, SimplePie stores author's name as email, e.g. http://feeds.feedburner.com/nymag/intel
+				if ($author->get_name() !== null) {
+					$newitem->addElement('dc:creator', $author->get_name());
+				} elseif ($author->get_email() !== null) {
+					$newitem->addElement('dc:creator', $author->get_email());
+				}
 			}
 		} elseif ($authors = $extractor->getAuthors()) {
 			//TODO: make sure the list size is reasonable
 			foreach ($authors as $author) {
-				//TODO: addElement replaces this element each time.
-				// xpath often selects authors from other articles linked from the page.
+				// TODO: xpath often selects authors from other articles linked from the page.
 				// for now choose first item
 				$newitem->addElement('dc:creator', $author);
 				break;
@@ -764,10 +810,24 @@ foreach ($items as $key => $item) {
 		} else {
 			$newitem->addElement('dc:identifier', remove_url_cruft($item->get_permalink()));
 		}
+		
+		// add categories
+		if ($categories = $item->get_categories()) {
+			foreach ($categories as $category) {
+				if ($category->get_label() !== null) {
+					$newitem->addElement('category', $category->get_label());
+				}
+			}
+		}
+		
 		// check for enclosures
 		if ($options->keep_enclosures) {
 			if ($enclosures = $item->get_enclosures()) {
 				foreach ($enclosures as $enclosure) {
+					// thumbnails
+					foreach ((array)$enclosure->get_thumbnails() as $thumbnail) {
+						$newitem->addElement('media:thumbnail', '', array('url'=>$thumbnail));
+					}
 					if (!$enclosure->get_link()) continue;
 					$enc = array();
 					// Media RSS spec ($enc): http://search.yahoo.com/mrss
