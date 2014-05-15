@@ -2,6 +2,33 @@ FiveFilters.org: Full-Text RSS
 http://fivefilters.org/content-only/
 CHANGELOG
 ------------------------------------
+3.0 (2012-09-04)
+ - Multi-page support - next_page_link now supported in site config (enable/disable with $options->multipage)
+ - HTML5 parser available - use parser: html5lib in site config, also see $options->allowed_parsers
+ - Updated site patterns for better extraction
+ - New global site config to be applied to all sites (global.txt)
+ - APC caching of site config files to improve performance, if APC available - see $options->apc 
+ - Site config editor in admin/ - easily find, edit, test, and test site config files, or add new ones
+ - Debug mode to see what's happening behind the scenes - see $options->debug
+ - Removed deprecated config options: restrict, message_to_prepend_with_key, message_to_append_with_key, error_message_with_key
+ - Removed extraction with CSS via querystring
+ - Removed config option: $options->alternative_url
+ - Bug fix: allow extraction of a single element
+ - Bug fix: redirect handling improved
+ - Strip 'http://' prefix when API key is supplied
+ - Site config merging (custom + standard + fingerprint + global)
+ - Site config command replace_string(find): replace can now be split over two lines: find_string: find, replace_string: replace
+ - YouTube and Vimeo URLs now return iframe embed code
+ - We now look for OpenGraph title and date elements
+ - Improved extraction from AJAX pages - we now look for AJAX triggers embedded in HTML, per Google spec
+ - JSONP support - use &format=json&callback=functionName in querystring
+ - New config option to enable Cross-Origin Resource Sharing (CORS): $option->cors
+ - New config option to enable XSS filtering, if required: $option->xss_filter
+ - Zend_Cache updated
+ - Smart caching - experimental feature to store cache IDs in APC first, and write output to disk on subsequent request (see $options->smart_cache)
+ - Easier cloud deploy - manifest.yml added for AppFog
+ - Override most config options with environment variables, e.g. ftr_max_entries: 3
+
 2.9.5 (2012-04-29)
  - Language detection using Text_LanguageDetect or PHP-CLD (dc:language field in output and $options->detect_language in config)
  - New site patterns added and old ones updated

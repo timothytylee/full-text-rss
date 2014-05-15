@@ -10,7 +10,7 @@
 * More information: http://fivefilters.org/content-only/
 * License: Apache License, Version 2.0
 * Requires: PHP5
-* Date: 2011-07-22
+* Date: 2012-08-27
 * 
 * Differences between the PHP port and the original
 * ------------------------------------------------------
@@ -105,19 +105,24 @@ class Readability
 	* Create instance of Readability
 	* @param string UTF-8 encoded string
 	* @param string (optional) URL associated with HTML (used for footnotes)
+	* @param string which parser to use for turning raw HTML into a DOMDocument (either 'libxml' or 'html5lib')
 	*/	
-	function __construct($html, $url=null)
+	function __construct($html, $url=null, $parser='libxml')
 	{
+		$this->url = $url;
 		/* Turn all double br's into p's */
 		$html = preg_replace($this->regexps['replaceBrs'], '</p><p>', $html);
 		$html = preg_replace($this->regexps['replaceFonts'], '<$1span>', $html);
 		$html = mb_convert_encoding($html, 'HTML-ENTITIES', "UTF-8");
-		$this->dom = new DOMDocument();
-		$this->dom->preserveWhiteSpace = false;
-		$this->dom->registerNodeClass('DOMElement', 'JSLikeHTMLElement');
 		if (trim($html) == '') $html = '<html></html>';
-		@$this->dom->loadHTML($html);
-		$this->url = $url;
+		if ($parser=='html5lib' && ($this->dom = HTML5_Parser::parse($html))) {
+			// all good
+		} else {
+			$this->dom = new DOMDocument();
+			$this->dom->preserveWhiteSpace = false;
+			@$this->dom->loadHTML($html);
+		}
+		$this->dom->registerNodeClass('DOMElement', 'JSLikeHTMLElement');
 	}
 
 	/**

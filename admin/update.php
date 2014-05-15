@@ -33,8 +33,8 @@ ini_set("display_errors", 1);
 ////////////////////////////////
 // Load config file
 ////////////////////////////////
-require_once('../config.php');
 $admin_page = 'update';
+require_once('../config.php');
 require_once('require_login.php');
 require_once('template.php');
 tpl_header('Update site patterns');

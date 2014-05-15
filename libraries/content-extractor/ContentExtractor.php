@@ -5,8 +5,8 @@
  * Uses patterns specified in site config files and auto detection (hNews/PHP Readability) 
  * to extract content from HTML files.
  * 
- * @version 0.8
- * @date 2012-02-21
+ * @version 0.9
+ * @date 2012-08-30
  * @author Keyvan Minoukadeh
  * @copyright 2011 Keyvan Minoukadeh
  * @license http://www.gnu.org/licenses/agpl-3.0.html AGPL v3
@@ -39,9 +39,12 @@ class ContentExtractor
 	protected $date;
 	protected $body;
 	protected $success = false;
+	protected $nextPageUrl;
+	public $allowedParsers = array('libxml', 'html5lib');
 	public $fingerprints = array();
 	public $readability;
 	public $debug = false;
+	public $debugVerbose = false;
 
 	function __construct($path, $fallback=null) {
 		SiteConfig::set_config_path($path, $fallback);	
@@ -52,7 +55,8 @@ class ContentExtractor
 			$mem = round(memory_get_usage()/1024, 2);
 			$memPeak = round(memory_get_peak_usage()/1024, 2);
 			echo '* ',$msg;
-			echo ' - mem used: ',$mem," (peak: $memPeak)\n";	
+			if ($this->debugVerbose) echo ' - mem used: ',$mem," (peak: $memPeak)";
+			echo "\n";
 			ob_flush();
 			flush();
 		}
@@ -67,6 +71,7 @@ class ContentExtractor
 		$this->author = array();
 		$this->language = null;
 		$this->date = null;
+		$this->nextPageUrl = null;
 		$this->success = false;
 	}
 
@@ -86,7 +91,61 @@ class ContentExtractor
 				return $_fphost;
 			}
 		}
+		$this->debug('No fingerprint matches');
 		return false;
+	}
+	
+	// returns SiteConfig instance (joined in order: exact match, wildcard, fingerprint, global, default)
+	public function buildSiteConfig($url, $html='', $add_to_cache=true) {
+		// extract host name
+		$host = @parse_url($url, PHP_URL_HOST);
+		$host = strtolower($host);
+		if (substr($host, 0, 4) == 'www.') $host = substr($host, 4);
+		// is merged version already cached?
+		if (SiteConfig::is_cached("$host.merged")) {
+			$this->debug("Returning cached and merged site config for $host");
+			return SiteConfig::build("$host.merged");
+		}
+		// let's build from site_config/custom/ and standard/
+		$config = SiteConfig::build($host);
+		if ($add_to_cache && $config && !SiteConfig::is_cached("$host")) {
+			SiteConfig::add_to_cache($host, $config);
+		}
+		// if no match, use defaults
+		if (!$config) $config = new SiteConfig();
+		// load fingerprint config?
+		if ($config->autodetect_on_failure()) {
+			// check HTML for fingerprints
+			if (!empty($this->fingerprints) && ($_fphost = $this->findHostUsingFingerprints($html))) {
+				if ($config_fingerprint = SiteConfig::build($_fphost)) {
+					$this->debug("Appending site config settings from $_fphost (fingerprint match)");
+					$config->append($config_fingerprint);
+					if ($add_to_cache && !SiteConfig::is_cached($_fphost)) {
+						//$config_fingerprint->cache_in_apc = true;
+						SiteConfig::add_to_cache($_fphost, $config_fingerprint);
+					}
+				}
+			}
+		}
+		// load global config?
+		if ($config->autodetect_on_failure()) {
+			if ($config_global = SiteConfig::build('global', true)) {
+				$this->debug('Appending site config settings from global.txt');
+				$config->append($config_global);
+				if ($add_to_cache && !SiteConfig::is_cached('global')) {
+					//$config_global->cache_in_apc = true;
+					SiteConfig::add_to_cache('global', $config_global);
+				}
+			}
+		}
+		// store copy of merged config
+		if ($add_to_cache) {
+			// do not store in APC if wildcard match
+			$use_apc = ($host == $config->cache_key);
+			$config->cache_key = null;
+			SiteConfig::add_to_cache("$host.merged", $config, $use_apc);
+		}
+		return $config;
 	}
 	
 	// returns true on success, false on failure
@@ -95,34 +154,25 @@ class ContentExtractor
 	// but it has problems of its own which we try to avoid with this option.
 	public function process($html, $url, $smart_tidy=true) {
 		$this->reset();
-		// extract host name
-		$host = @parse_url($url, PHP_URL_HOST);
-		if (!($this->config = SiteConfig::build($host))) {
-			// no match, check HTML for fingerprints
-			if (!empty($this->fingerprints) && ($_fphost = $this->findHostUsingFingerprints($html))) {
-				$this->config = SiteConfig::build($_fphost);
-			}
-			unset($_fphost);
-			if (!$this->config) {
-				// no match, so use defaults
-				$this->config = new SiteConfig();
-			}
-		}
-		// store copy of config in our static cache array in case we need to process another URL
-		SiteConfig::add_to_cache($host, $this->config);
+		$this->config = $this->buildSiteConfig($url, $html);
 		
 		// do string replacements
-		foreach ($this->config->replace_string as $_repl) {
-			$html = str_replace($_repl[0], $_repl[1], $html);
+		if (!empty($this->config->find_string)) {
+			if (count($this->config->find_string) == count($this->config->replace_string)) {
+				$html = str_replace($this->config->find_string, $this->config->replace_string, $html, $_count);
+				$this->debug("Strings replaced: $_count (find_string and/or replace_string)");
+			} else {
+				$this->debug('Skipped string replacement - incorrect number of find-replace strings in site config');
+			}
+			unset($_count);
 		}
-		unset($_repl);
 		
 		// use tidy (if it exists)?
 		// This fixes problems with some sites which would otherwise
 		// trouble DOMDocument's HTML parsing. (Although sometimes it
 		// makes matters worse, which is why you can override it in site config files.)
 		$tidied = false;
-		if ($this->config->tidy && function_exists('tidy_parse_string') && $smart_tidy) {
+		if ($this->config->tidy() && function_exists('tidy_parse_string') && $smart_tidy) {
 			$this->debug('Using Tidy');
 			$tidy = tidy_parse_string($html, self::$tidy_config, 'UTF8');
 			if (tidy_clean_repair($tidy)) {
@@ -134,22 +184,50 @@ class ContentExtractor
 		}
 		
 		// load and parse html
-		$this->readability = new Readability($html, $url);		
+		$_parser = $this->config->parser();
+		if (!in_array($_parser, $this->allowedParsers)) {
+			$this->debug("HTML parser $_parser not listed, using libxml instead");
+			$_parser = 'libxml';
+		}
+		$this->debug("Attempting to parse HTML with $_parser");
+		$this->readability = new Readability($html, $url, $_parser);
 		
 		// we use xpath to find elements in the given HTML document
 		// see http://en.wikipedia.org/wiki/XPath_1.0
 		$xpath = new DOMXPath($this->readability->dom);
 
-		// try to get title
-		foreach ($this->config->title as $pattern) {
+		// try to get next page link
+		foreach ($this->config->next_page_link as $pattern) {
 			$elems = @$xpath->evaluate($pattern, $this->readability->dom);
 			if (is_string($elems)) {
-				$this->debug('Title expression evaluated as string');
-				$this->title = trim($elems);
+				$this->nextPageUrl = trim($elems);
 				break;
 			} elseif ($elems instanceof DOMNodeList && $elems->length > 0) {
-				$this->debug('Title matched');
+				foreach ($elems as $item) {
+					if ($item instanceof DOMElement && $item->hasAttribute('href')) {
+						$this->nextPageUrl = $item->getAttribute('href');
+						break 2;
+					} elseif ($item instanceof DOMAttr && $item->value) {
+						$this->nextPageUrl = $item->value;
+						break 2;
+					}
+				}
+			}
+		}
+		
+		// try to get title
+		foreach ($this->config->title as $pattern) {
+			// $this->debug("Trying $pattern");
+			$elems = @$xpath->evaluate($pattern, $this->readability->dom);
+			if (is_string($elems)) {
+				$this->title = trim($elems);
+				$this->debug('Title expression evaluated as string: '.$this->title);
+				$this->debug("...XPath match: $pattern");
+				break;
+			} elseif ($elems instanceof DOMNodeList && $elems->length > 0) {
 				$this->title = $elems->item(0)->textContent;
+				$this->debug('Title matched: '.$this->title);
+				$this->debug("...XPath match: $pattern");
 				// remove title from document
 				try {
 					$elems->item(0)->parentNode->removeChild($elems->item(0));
@@ -165,17 +243,22 @@ class ContentExtractor
 			foreach ($this->config->author as $pattern) {
 				$elems = @$xpath->evaluate($pattern, $this->readability->dom);
 				if (is_string($elems)) {
-					$this->debug('Author expression evaluated as string');
 					if (trim($elems) != '') {
 						$this->author[] = trim($elems);
+						$this->debug('Author expression evaluated as string: '.trim($elems));
+						$this->debug("...XPath match: $pattern");
 						break;
 					}
 				} elseif ($elems instanceof DOMNodeList && $elems->length > 0) {
 					foreach ($elems as $elem) {
 						if (!isset($elem->parentNode)) continue;
 						$this->author[] = trim($elem->textContent);
+						$this->debug('Author matched: '.trim($elem->textContent));
 					}
-					if (!empty($this->author)) break;
+					if (!empty($this->author)) {
+						$this->debug("...XPath match: $pattern");
+						break;
+					}
 				}
 			}
 		}
@@ -187,12 +270,14 @@ class ContentExtractor
 			if (is_string($elems)) {
 				if (trim($elems) != '') {
 					$this->language = trim($elems);
+					$this->debug('Language matched: '.$this->language);
 					break;
 				}
 			} elseif ($elems instanceof DOMNodeList && $elems->length > 0) {
 				foreach ($elems as $elem) {
 					if (!isset($elem->parentNode)) continue;
 					$this->language = trim($elem->textContent);
+					$this->debug('Language matched: '.$this->language);					
 				}
 				if ($this->language) break;
 			}
@@ -202,10 +287,8 @@ class ContentExtractor
 		foreach ($this->config->date as $pattern) {
 			$elems = @$xpath->evaluate($pattern, $this->readability->dom);
 			if (is_string($elems)) {
-				$this->debug('Date expression evaluated as string');
-				$this->date = strtotime(trim($elems, "; \t\n\r\0\x0B"));
+				$this->date = strtotime(trim($elems, "; \t\n\r\0\x0B"));				
 			} elseif ($elems instanceof DOMNodeList && $elems->length > 0) {
-				$this->debug('Date matched');
 				$this->date = $elems->item(0)->textContent;
 				$this->date = strtotime(trim($this->date, "; \t\n\r\0\x0B"));
 				// remove date from document
@@ -214,6 +297,8 @@ class ContentExtractor
 			if (!$this->date) {
 				$this->date = null;
 			} else {
+				$this->debug('Date matched: '.date('Y-m-d H:i:s', $this->date));
+				$this->debug("...XPath match: $pattern");
 				break;
 			}
 		}
@@ -284,11 +369,12 @@ class ContentExtractor
 			// check for matches
 			if ($elems && $elems->length > 0) {
 				$this->debug('Body matched');
+				$this->debug("...XPath match: $pattern");
 				if ($elems->length == 1) {				
 					$this->body = $elems->item(0);
 					// prune (clean up elements that may not be content)
-					if ($this->config->prune) {
-						$this->debug('Pruning content');
+					if ($this->config->prune()) {
+						$this->debug('...pruning content');
 						$this->readability->prepArticle($this->body);
 					}
 					break;
@@ -305,14 +391,14 @@ class ContentExtractor
 							}
 						}
 						if ($isDescendant) {
-							$this->debug('Element is child of another body element, skipping.');
+							$this->debug('...element is child of another body element, skipping.');
 						} else {
 							// prune (clean up elements that may not be content)
-							if ($this->config->prune) {
+							if ($this->config->prune()) {
 								$this->debug('Pruning content');
 								$this->readability->prepArticle($elem);
 							}
-							$this->debug('Element added to body');
+							$this->debug('...element added to body');
 							$this->body->appendChild($elem);
 						}
 					}
@@ -324,25 +410,25 @@ class ContentExtractor
 		$detect_title = $detect_body = $detect_author = $detect_date = false;
 		// detect title?
 		if (!isset($this->title)) {
-			if (empty($this->config->title) || $this->config->autodetect_on_failure) {
+			if (empty($this->config->title) || $this->config->autodetect_on_failure()) {
 				$detect_title = true;
 			}
 		}
 		// detect body?
 		if (!isset($this->body)) {
-			if (empty($this->config->body) || $this->config->autodetect_on_failure) {
+			if (empty($this->config->body) || $this->config->autodetect_on_failure()) {
 				$detect_body = true;
 			}
 		}
 		// detect author?
 		if (empty($this->author)) {
-			if (empty($this->config->author) || $this->config->autodetect_on_failure) {
+			if (empty($this->config->author) || $this->config->autodetect_on_failure()) {
 				$detect_author = true;
 			}
 		}
 		// detect date?
 		if (!isset($this->date)) {
-			if (empty($this->config->date) || $this->config->autodetect_on_failure) {
+			if (empty($this->config->date) || $this->config->autodetect_on_failure()) {
 				$detect_date = true;
 			}
 		}
@@ -359,8 +445,8 @@ class ContentExtractor
 					// check for entry-title
 					$elems = @$xpath->query(".//*[contains(concat(' ',normalize-space(@class),' '),' entry-title ')]", $hentry);
 					if ($elems && $elems->length > 0) {
-						$this->debug('hNews: found entry-title');
 						$this->title = $elems->item(0)->textContent;
+						$this->debug('hNews: found entry-title: '.$this->title);
 						// remove title from document
 						$elems->item(0)->parentNode->removeChild($elems->item(0));
 						$detect_title = false;
@@ -371,11 +457,11 @@ class ContentExtractor
 					// check for time element with pubdate attribute
 					$elems = @$xpath->query(".//time[@pubdate] | .//abbr[contains(concat(' ',normalize-space(@class),' '),' published ')]", $hentry);
 					if ($elems && $elems->length > 0) {
-						$this->debug('hNews: found publication date');
 						$this->date = strtotime(trim($elems->item(0)->textContent));
 						// remove date from document
 						//$elems->item(0)->parentNode->removeChild($elems->item(0));
 						if ($this->date) {
+							$this->debug('hNews: found publication date: '.date('Y-m-d H:i:s', $this->date));
 							$detect_date = false;
 						} else {
 							$this->date = null;
@@ -387,18 +473,19 @@ class ContentExtractor
 					// check for time element with pubdate attribute
 					$elems = @$xpath->query(".//*[contains(concat(' ',normalize-space(@class),' '),' vcard ') and (contains(concat(' ',normalize-space(@class),' '),' author ') or contains(concat(' ',normalize-space(@class),' '),' byline '))]", $hentry);
 					if ($elems && $elems->length > 0) {
-						$this->debug('hNews: found author');
 						$author = $elems->item(0);
 						$fn = @$xpath->query(".//*[contains(concat(' ',normalize-space(@class),' '),' fn ')]", $author);
 						if ($fn && $fn->length > 0) {
 							foreach ($fn as $_fn) {
 								if (trim($_fn->textContent) != '') {
 									$this->author[] = trim($_fn->textContent);
+									$this->debug('hNews: found author: '.trim($_fn->textContent));
 								}
 							}
 						} else {
 							if (trim($author->textContent) != '') {
 								$this->author[] = trim($author->textContent);
+								$this->debug('hNews: found author: '.trim($author->textContent));
 							}
 						}
 						$detect_author = empty($this->author);
@@ -418,7 +505,7 @@ class ContentExtractor
 							if (($e->tagName == 'img') || (trim($e->textContent) != '')) {
 								$this->body = $elems->item(0);
 								// prune (clean up elements that may not be content)
-								if ($this->config->prune) {
+								if ($this->config->prune()) {
 									$this->debug('Pruning content');
 									$this->readability->prepArticle($this->body);
 								}
@@ -443,7 +530,7 @@ class ContentExtractor
 									$this->debug('Element is child of another body element, skipping.');
 								} else {
 									// prune (clean up elements that may not be content)
-									if ($this->config->prune) {
+									if ($this->config->prune()) {
 										$this->debug('Pruning content');
 										$this->readability->prepArticle($elem);
 									}								
@@ -463,8 +550,8 @@ class ContentExtractor
 			// check for instapaper_title
 			$elems = @$xpath->query("//*[contains(concat(' ',normalize-space(@class),' '),' instapaper_title ')]", $this->readability->dom);
 			if ($elems && $elems->length > 0) {
-				$this->debug('title found (.instapaper_title)');
 				$this->title = $elems->item(0)->textContent;
+				$this->debug('Title found (.instapaper_title): '.$this->title);
 				// remove title from document
 				$elems->item(0)->parentNode->removeChild($elems->item(0));
 				$detect_title = false;
@@ -477,7 +564,7 @@ class ContentExtractor
 				$this->debug('body found (.instapaper_body)');
 				$this->body = $elems->item(0);
 				// prune (clean up elements that may not be content)
-				if ($this->config->prune) {
+				if ($this->config->prune()) {
 					$this->debug('Pruning content');
 					$this->readability->prepArticle($this->body);
 				}
@@ -493,9 +580,9 @@ class ContentExtractor
 		if ($detect_author) {
 			$elems = @$xpath->query("//a[contains(concat(' ',normalize-space(@rel),' '),' author ')]", $this->readability->dom);
 			if ($elems && $elems->length == 1) {
-				$this->debug('Author found (rel="author")');
 				$author = trim($elems->item(0)->textContent);
 				if ($author != '') {
+					$this->debug("Author found (rel=\"author\"): $author");
 					$this->author[] = $author;
 					$detect_author = false;
 				}
@@ -508,11 +595,11 @@ class ContentExtractor
 		if ($detect_date) {
 			$elems = @$xpath->query("//time[@pubdate]", $this->readability->dom);
 			if ($elems && $elems->length == 1) {
-				$this->debug('Date found (pubdate marked time element)');
 				$this->date = strtotime(trim($elems->item(0)->textContent));
 				// remove date from document
 				//$elems->item(0)->parentNode->removeChild($elems->item(0));
 				if ($this->date) {
+					$this->debug('Date found (pubdate marked time element): '.date('Y-m-d H:i:s', $this->date));
 					$detect_date = false;
 				} else {
 					$this->date = null;
@@ -538,7 +625,7 @@ class ContentExtractor
 				$this->body = $this->body->firstChild;
 			}
 			// prune (clean up elements that may not be content)
-			if ($this->config->prune) {
+			if ($this->config->prune()) {
 				$this->debug('Pruning content');
 				$this->readability->prepArticle($this->body);
 			}
@@ -603,6 +690,10 @@ class ContentExtractor
 	
 	public function getSiteConfig() {
 		return $this->config;
+	}
+	
+	public function getNextPageUrl() {
+		return $this->nextPageUrl;
 	}
 }
 ?>

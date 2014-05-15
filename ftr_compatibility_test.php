@@ -1,6 +1,6 @@
 <?php
 /*
-FULL-TEXT-RSS V2 COMPATIBILITY TEST
+FULL-TEXT-RSS V3 COMPATIBILITY TEST
 
 1) Upload ftr_compatibility_test.php to the web-accessible root of your website.
 For example, if your website is www.example.com, upload it so that you can get
@@ -13,7 +13,7 @@ SimplePie.org. We have kept most of their checks intact as we use SimplePie in o
 http://github.com/simplepie/simplepie/tree/master/compatibility_test/
 */
 
-$app_name = 'Full-Text RSS 2.9';
+$app_name = 'Full-Text RSS 3.0';
 
 $php_ok = (function_exists('version_compare') && version_compare(phpversion(), '5.2.0', '>='));
 $pcre_ok = extension_loaded('pcre');
@@ -84,6 +84,14 @@ em {
 	padding: 0.1em 0;
 }
 
+.success {
+  background-color: lightgreen;
+}
+
+.highlight {
+  background-color: #ffc;
+}
+
 ul, ol {
 	margin:10px 0 10px 20px;
 	padding:0 0 0 15px;
@@ -114,7 +122,6 @@ h4 {
 
 code {
 	font-size:1.1em;
-	background-color:#f3f3ff;
 	color:#000;
 }
 
@@ -251,71 +258,71 @@ div.chunk {
 			<h3>What does this mean?</h3>
 			<ol>
 				<?php if ($php_ok && $xml_ok && $pcre_ok && $mbstring_ok && $iconv_ok && $filter_ok && $zlib_ok && $tidy_ok && $curl_ok && $parallel_ok && $allow_url_fopen_ok): ?>
-				<li><em>You have everything you need to run <?php echo $app_name; ?> properly!  Congratulations!</em></li>
+				<li>You have everything you need to run <?php echo $app_name; ?> properly!  Congratulations!</li>
 				<?php else: ?>
 					<?php if ($php_ok): ?>
-						<li><strong>PHP:</strong> You are running a supported version of PHP.  <em>No problems here.</em></li>
+						<li><strong>PHP:</strong> You are running a supported version of PHP.  No problems here.</li>
 						<?php if ($xml_ok): ?>
-							<li><strong>XML:</strong> You have XMLReader support or a version of XML support that isn't broken installed.  <em>No problems here.</em></li>
+							<li><strong>XML:</strong> You have XMLReader support or a version of XML support that isn't broken installed.  No problems here.</li>
 							<?php if ($pcre_ok): ?>
-								<li><strong>PCRE:</strong> You have PCRE support installed. <em>No problems here.</em></li>
+								<li><strong>PCRE:</strong> You have PCRE support installed. No problems here.</li>
 								
 								<?php if ($allow_url_fopen_ok): ?>
-									<li><strong>allow_url_fopen:</strong> You have allow_url_fopen enabled. <em>No problems here.</em></li>
+									<li><strong>allow_url_fopen:</strong> You have allow_url_fopen enabled. No problems here.</li>
 									
 									<?php if ($filter_ok): ?>
-										<li><strong>Data filtering:</strong> You have the PHP filter extension enabled. <em>No problems here.</em></li>
+										<li><strong>Data filtering:</strong> You have the PHP filter extension enabled. No problems here.</li>
 	
 										<?php if ($zlib_ok): ?>
-											<li><strong>Zlib:</strong> You have <code>Zlib</code> enabled.  This allows SimplePie to support GZIP-encoded feeds.  <em>No problems here.</em></li>
+											<li><strong>Zlib:</strong> You have <code>Zlib</code> enabled.  This allows SimplePie to support GZIP-encoded feeds.  No problems here.</li>
 										<?php else: ?>
-											<li><strong>Zlib:</strong> The <code>Zlib</code> extension is not available.  SimplePie will ignore any GZIP-encoding, and instead handle feeds as uncompressed text.</li>
+											<li class="highlight"><strong>Zlib:</strong> The <code>Zlib</code> extension is not available.  SimplePie will ignore any GZIP-encoding, and instead handle feeds as uncompressed text.</li>
 										<?php endif; ?>
 			
 										<?php if ($mbstring_ok && $iconv_ok): ?>
-											<li><strong>mbstring and iconv:</strong> You have both <code>mbstring</code> and <code>iconv</code> installed!  This will allow <?php echo $app_name; ?> to handle the greatest number of languages. <em>No problems here.</em></li>
+											<li><strong>mbstring and iconv:</strong> You have both <code>mbstring</code> and <code>iconv</code> installed!  This will allow <?php echo $app_name; ?> to handle the greatest number of languages. No problems here.</li>
 										<?php elseif ($mbstring_ok): ?>
-											<li><strong>mbstring:</strong> <code>mbstring</code> is installed, but <code>iconv</code> is not.</li>
+											<li class="highlight"><strong>mbstring:</strong> <code>mbstring</code> is installed, but <code>iconv</code> is not.</li>
 										<?php elseif ($iconv_ok): ?>
-											<li><strong>iconv:</strong> <code>iconv</code> is installed, but <code>mbstring</code> is not.</li>
+											<li class="highlight"><strong>iconv:</strong> <code>iconv</code> is installed, but <code>mbstring</code> is not.</li>
 										<?php else: ?>
-											<li><strong>mbstring and iconv:</strong> <em>You do not have either of the extensions installed.</em> This will significantly impair your ability to read non-English feeds, as well as even some English ones.</li>
+											<li class="highlight"><strong>mbstring and iconv:</strong> <em>You do not have either of the extensions installed.</em> This will significantly impair your ability to read non-English feeds, as well as even some English ones.</li>
 										<?php endif; ?>
 
 										<?php if ($tidy_ok): ?>
-											<li><strong>Tidy:</strong> You have <code>Tidy</code> support installed.  <em>No problems here.</em></li>
+											<li><strong>Tidy:</strong> You have <code>Tidy</code> support installed.  No problems here.</li>
 										<?php else: ?>
-											<li><strong>Tidy:</strong> The <code>Tidy</code> extension is not available.  <?php echo $app_name; ?> should still work with most feeds, but you may experience problems with some.</li>
+											<li class="highlight"><strong>Tidy:</strong> The <code>Tidy</code> extension is not available.  <?php echo $app_name; ?> should still work with most feeds/articles, but you may experience problems with some. If you do, we suggest you specify parsing with html5lib.</li>
 										<?php endif; ?>
 										
 										<?php if ($curl_ok): ?>
-											<li><strong>cURL:</strong> You have <code>cURL</code> support installed.  <em>No problems here.</em></li>
+											<li><strong>cURL:</strong> You have <code>cURL</code> support installed.  No problems here.</li>
 										<?php else: ?>
-											<li><strong>cURL:</strong> The <code>cURL</code> extension is not available.  SimplePie will use <code>fsockopen()</code> instead.</li>
+											<li class="highlight"><strong>cURL:</strong> The <code>cURL</code> extension is not available.  SimplePie will use <code>fsockopen()</code> instead.</li>
 										<?php endif; ?>
 			
 										<?php if ($parallel_ok): ?>
-											<li><strong>Parallel URL fetching:</strong> You have <code>HttpRequestPool</code> or <code>curl_multi</code> support installed.  <em>No problems here.</em></li>
+											<li><strong>Parallel URL fetching:</strong> You have <code>HttpRequestPool</code> or <code>curl_multi</code> support installed.  No problems here.</li>
 										<?php else: ?>
-											<li><strong>Parallel URL fetching:</strong> <code>HttpRequestPool</code> or <code>curl_multi</code> support is not available.  <?php echo $app_name; ?> will use <code>file_get_contents()</code> instead to fetch URLs sequentially rather than in parallel.</li>
+											<li class="highlight"><strong>Parallel URL fetching:</strong> <code>HttpRequestPool</code> or <code>curl_multi</code> support is not available.  <?php echo $app_name; ?> will use <code>file_get_contents()</code> instead to fetch URLs sequentially rather than in parallel.</li>
 										<?php endif; ?>
 
 									<?php else: ?>
-										<li><strong>Data filtering:</strong> Your PHP configuration has the filter extension disabled.  <em><?php echo $app_name; ?> will not work here.</em></li>
+										<li class="highlight"><strong>Data filtering:</strong> Your PHP configuration has the filter extension disabled.  <em><?php echo $app_name; ?> will not work here.</em></li>
 									<?php endif; ?>										
 										
 								<?php else: ?>
-									<li><strong>allow_url_fopen:</strong> Your PHP configuration has allow_url_fopen disabled.  <em><?php echo $app_name; ?> will not work here.</em></li>
+									<li class="highlight"><strong>allow_url_fopen:</strong> Your PHP configuration has allow_url_fopen disabled.  <em><?php echo $app_name; ?> will not work here.</em></li>
 								<?php endif; ?>
 									
 							<?php else: ?>
-								<li><strong>PCRE:</strong> Your PHP installation doesn't support Perl-Compatible Regular Expressions.  <em><?php echo $app_name; ?> will not work here.</em></li>
+								<li class="highlight"><strong>PCRE:</strong> Your PHP installation doesn't support Perl-Compatible Regular Expressions.  <em><?php echo $app_name; ?> will not work here.</em></li>
 							<?php endif; ?>
 						<?php else: ?>
-							<li><strong>XML:</strong> Your PHP installation doesn't support XML parsing.  <em><?php echo $app_name; ?> will not work here.</em></li>
+							<li class="highlight"><strong>XML:</strong> Your PHP installation doesn't support XML parsing.  <em><?php echo $app_name; ?> will not work here.</em></li>
 						<?php endif; ?>
 					<?php else: ?>
-						<li><strong>PHP:</strong> You are running an unsupported version of PHP.  <em><?php echo $app_name; ?> will not work here.</em></li>
+						<li class="highlight"><strong>PHP:</strong> You are running an unsupported version of PHP.  <em><?php echo $app_name; ?> will not work here.</em></li>
 					<?php endif; ?>
 				<?php endif; ?>
 			</ol>
@@ -324,7 +331,7 @@ div.chunk {
 		<div class="chunk">
 			<?php if ($php_ok && $xml_ok && $pcre_ok && $mbstring_ok && $iconv_ok && $filter_ok && $allow_url_fopen_ok) { ?>
 				<h3>Bottom Line: Yes, you can!</h3>
-				<p><em>Your webhost has its act together!</em></p>
+				<p><em class="success">Your webhost has its act together!</em></p>
 				<p>You can download the latest version of <?php echo $app_name; ?> from <a href="http://fivefilters.org/content-only/#download">FiveFilters.org</a>.</p>
 				<p><strong>Note</strong>: Passing this test does not guarantee that <?php echo $app_name; ?> will run on your webhost &mdash; it only ensures that the basic requirements have been addressed. If you experience any problems, please let us know.</p>
 			<?php } else if ($php_ok && $xml_ok && $pcre_ok && $mbstring_ok && $allow_url_fopen_ok && $filter_ok) { ?>

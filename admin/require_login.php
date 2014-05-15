@@ -3,7 +3,7 @@
 // Author: Keyvan Minoukadeh
 // Copyright (c) 2012 Keyvan Minoukadeh
 // License: AGPLv3
-// Date: 2012-04-16
+// Date: 2012-08-30
 // More info: http://fivefilters.org/content-only/
 // Help: http://help.fivefilters.org
 
@@ -29,8 +29,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 session_start();
 require_once(dirname(dirname(__FILE__)).'/config.php');
 
-$realm = 'Restricted area';
-
 if (isset($_GET['logout'])) $_SESSION['auth'] = 0;
 
 if (!isset($_SESSION['auth']) || $_SESSION['auth'] != 1) {
@@ -43,6 +41,8 @@ if (!isset($_SESSION['auth']) || $_SESSION['auth'] != 1) {
 }
 
 /* HTTP DIGEST authentication - doesn't work without server tweaks in FastCGI environments
+
+$realm = 'Restricted area';
 
 //user => password
 $users = array($options->admin_credentials['username'] => $options->admin_credentials['password']);
