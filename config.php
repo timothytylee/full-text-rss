@@ -116,6 +116,13 @@ $options->rewrite_relative_urls = true;
 // User decides: 'user' (this option will appear on the form)
 $options->exclude_items_on_fail = 'user';
 
+// Enable single-page support
+// -------------------------
+// If enabled, we will try to follow single page links (e.g. print view) on multi-page articles.
+// Currently this only happens for sites where single_page_link has been defined 
+// in a site config file.
+$options->singlepage = true;
+
 // Enable multi-page support
 // -------------------------
 // If enabled, we will try to follow next page links on multi-page articles.
@@ -123,15 +130,26 @@ $options->exclude_items_on_fail = 'user';
 // in a site config file.
 $options->multipage = true;
 
-// Enable caching
+// Enable disk caching
 // ----------------------
-// Enable this if you'd like to cache results
-// for 10 minutes. Cache files are written to disk (in cache/ subfolders
-// - which must be writable).
+// Enable this if you'd like to cache results on disk.
+// Possible options:
+//  * Disable caching: false (default)
+//  * Enable caching: true
+// Cache files are written to disk (in cache/ subfolders - which must be writable).
 // Initially it's best to keep this disabled to make sure everything works
 // as expected. If you have APC enabled, please also see smart_cache in the
 // advanced section.
 $options->caching = false;
+
+// Cache time (minutes)
+// ----------------------
+// How long should a response be cached?
+// Note: this affects both disk caching and the cache headers
+// sent in the Full-Text RSS HTTP response.
+// So even if you disable disk caching, this value will still
+// affect the cache headers in the HTTP response.
+$options->cache_time = 10;
 
 // Cache directory
 // ----------------------
@@ -172,21 +190,8 @@ $options->keep_enclosures = true;
 // * Use article/feed metadata (e.g. HTML lang attribute): 1 (default)
 // * As above, but guess if not present: 2
 // * Always guess: 3
-// * User decides: 'user' (value of 0-3 can be passed in querystring: e.g. &l=2)
+// * User decides: 'user' (value of 0-3 can be passed in querystring: e.g. &lang=2)
 $options->detect_language = 1;
-
-// Registration key
-// ---------------
-// The registration key is optional. It is not required to use Full-Text RSS, 
-// and does not affect the normal operation of Full-Text RSS. It is currently 
-// only used on admin pages which help you update site patterns with the 
-// latest version offered by FiveFilters.org. For these admin-related 
-// tasks to complete, we will require a valid registration key.
-// If you would like one, you can purchase the latest version of Full-Text RSS
-// at http://fivefilters.org/content-only/
-// Your registration key will automatically be sent in the confirmation email.
-// Once you have it, simply copy and paste it here.
-$options->registration_key = '';
 
 /////////////////////////////////////////////////
 /// RESTRICT ACCESS /////////////////////////////
@@ -298,23 +303,33 @@ $options->max_entries_with_key = 10;
 //
 // Valid values:
 // true - enabled, all content will be filtered
-// 'user' (default) - user must pass &xss in makefulltextfeed.php querystring to enable
+// 'user' (default) - user must pass &xss=1 in makefulltextfeed.php querystring to enable
 // false - disabled
 $options->xss_filter = 'user';
 
-// Allowed parsers
+// Allowed HTML parsers
 // ----------------------
 // Full-Text RSS attempts to use PHP's libxml extension to process HTML.
 // While fast, on some sites it may not always produce good results. 
 // For these sites, you can specify an alternative HTML parser: 
-// parser: html5lib
-// The html5lib parser is bundled with Full-Text RSS.
-// see http://code.google.com/p/html5lib/
+// parser: html5php
+// The html5php parser is bundled with Full-Text RSS.
+// see https://github.com/Masterminds/html5-php
 //
-// To disable HTML parsing with html5lib, you can remove it from this list.
-// By default we allow both: libxml and html5lib.
-$options->allowed_parsers = array('libxml', 'html5lib');
-//$options->allowed_parsers = array('libxml'); //disable html5lib - forcing libxml in all cases
+// To disable HTML parsing with html5php, remove it from this list.
+// By default we allow both libxml and html5php.
+// Note: html5php requires PHP 5.3 or higher. If you're running PHP 5.2, 
+// we'll always use libxml.
+$options->allowed_parsers = array('libxml', 'html5php');
+//$options->allowed_parsers = array('libxml'); //disable html5php - forcing libxml in all cases
+
+// Parser override in querystring
+// ---------------------
+// If enabled, user can pass &parser=html5php to override default parser.
+// Possible values:
+// * false: Don't allow override in querystring
+// * true: Allow (default)
+$options->allow_parser_override = true;
 
 // Enable Cross-Origin Resource Sharing (CORS)
 // ----------------------
@@ -322,6 +337,45 @@ $options->allowed_parsers = array('libxml', 'html5lib');
 // Access-Control-Allow-Origin: *
 // see http://en.wikipedia.org/wiki/Cross-origin_resource_sharing
 $options->cors = false;
+
+// Proxy server(s)
+// ----------------------
+// You can specify proxy servers here and ask Full-Text RSS to 
+// route HTTP requests through these servers.
+// If no proxy server is listed, all requests will be made directly.
+// A proxy server should be given a unique name (key in the array)
+// and as its value another array with key 'host' and, if required, 'auth'.
+//
+// Note: if you're listing proxies so Full-Text RSS randomly chooses one
+// for each request, you can also specify 'direct' as a value to make
+// sure direct requests are randomly made as well.
+$options->proxy_servers = array();
+// For example:
+//$options->proxy_servers = array('example1'=>array('host'=>'127.0.0.1:8888'), 'example2'=>array('host'=>'127.0.0.1:8888', 'auth'=>'user:pass'), 'direct'=>array());
+// If Polipo is installed and you want to use it as a caching proxy, uncomment the following line.
+//$options->proxy_servers = array('polipo'=>array('host'=>'127.0.0.1:8123'));
+
+// Proxy mode
+// ----------------------
+// How the proxy servers above should be used:
+// Possible options:
+// * Disable: false (no proxy will be used)
+// * Named: specify which server should be used (e.g. 'example1')
+// * Random: true (default) a random one from the set above will be used each time Full-Text RSS is called.
+// Note: if no proxy servers are entered in $options->proxy_servers, no proxies will be used.
+$options->proxy = true;
+
+// Proxy override in querystring
+// ----------------------
+// If enabled, user can disable or change the proxy server used.
+// Possible values:
+// * false: Don't allow override in querystring
+// * true: Allow user to disable or choose a proxy through a request parameter, like so...
+//    &proxy=0 to disable
+//    &proxy=1 for default behaviour (see $options->proxy) (default)
+//    &proxy=example1 to specify one of the proxies listed in $options->proxy_servers
+// Note: Only proxy servers listed in the config file can be used.
+$options->allow_proxy_override = true;
 
 // Use APC user cache?
 // ----------------------
@@ -427,7 +481,7 @@ $options->cache_cleanup = 100;
 /// DO NOT CHANGE ANYTHING BELOW THIS ///////////
 /////////////////////////////////////////////////
 
-if (!defined('_FF_FTR_VERSION')) define('_FF_FTR_VERSION', '3.2');
+if (!defined('_FF_FTR_VERSION')) define('_FF_FTR_VERSION', '3.3');
 
 if (basename(__FILE__) == 'config.php') {
 	if (file_exists(dirname(__FILE__).'/custom_config.php')) {

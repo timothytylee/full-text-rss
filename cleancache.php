@@ -57,15 +57,20 @@ if (!$options->caching) die('Caching is disabled');
 if ($options->apc && function_exists('apc_delete')) {
 	$_apc_data = apc_cache_info('user');
 	foreach ($_apc_data['cache_list'] as $_apc_item) {
-	  if ($_apc_item['ttl'] > 0 && ($_apc_item['ttl'] + $_apc_item['creation_time'] < time())) {
-		apc_delete($_apc_item['info']);
-	  }
+		//var_dump($_apc_item); exit;
+		// APCu keys incompatible with original APC keys, apparently fixed in newer versions, but not in 4.0.4
+		// So let's look for those keys and fix here (ctime -> creation_time, key -> info).
+		if (isset($_apc_item['ctime'])) $_apc_item['creation_time'] = $_apc_item['ctime'];
+		if (isset($_apc_item['key'])) $_apc_item['info'] = $_apc_item['key'];
+		if ($_apc_item['ttl'] > 0 && ($_apc_item['ttl'] + $_apc_item['creation_time'] < time())) {
+			apc_delete($_apc_item['info']);
+		}
 	}
 }
 
 // clean rss (non-key) cache
 $frontendOptions = array(
-   'lifetime' => 20*60,
+   'lifetime' => $options->cache_time*60,
    'automatic_serialization' => false,
    'write_control' => false,
    'automatic_cleaning_factor' => 0,
@@ -86,11 +91,11 @@ $cache->clean(Zend_Cache::CLEANING_MODE_OLD);
 
 // clean rss (key) cache
 $frontendOptions = array(
-   'lifetime' => 20*60,
-   'automatic_serialization' => false,
-   'write_control' => false,
-   'automatic_cleaning_factor' => 0,
-   'ignore_user_abort' => false
+	'lifetime' => $options->cache_time*60,
+	'automatic_serialization' => false,
+	'write_control' => false,
+	'automatic_cleaning_factor' => 0,
+	'ignore_user_abort' => false
 );
 $backendOptions = array(
 	'cache_dir' => $options->cache_dir.'/rss-with-key/',
@@ -104,5 +109,3 @@ $backendOptions = array(
 );
 $cache = Zend_Cache::factory('Core', 'File', $frontendOptions, $backendOptions);
 $cache->clean(Zend_Cache::CLEANING_MODE_OLD);
-
-?>

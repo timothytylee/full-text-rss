@@ -1,10 +1,10 @@
 <?php
 // Full-Text RSS: Create Full-Text Feeds
 // Author: Keyvan Minoukadeh
-// Copyright (c) 2013 Keyvan Minoukadeh
+// Copyright (c) 2014 Keyvan Minoukadeh
 // License: AGPLv3
-// Version: 3.2
-// Date: 2013-05-13
+// Version: 3.3
+// Date: 2014-05-07
 // More info: http://fivefilters.org/content-only/
 // Help: http://help.fivefilters.org
 
@@ -32,9 +32,17 @@ error_reporting(E_ALL ^ E_NOTICE);
 ini_set("display_errors", 1);
 @set_time_limit(120);
 
+if (!defined('_FF_FTR_MODE')) define('_FF_FTR_MODE', 'full');
+
+if (_FF_FTR_MODE === 'simple') {
+	$_REQUEST = array_merge($_GET, $_POST);
+} else {
+	$_REQUEST = $_GET;
+}
+
 // Deal with magic quotes
 if (get_magic_quotes_gpc()) {
-	$process = array(&$_GET, &$_POST, &$_REQUEST);
+	$process = array(&$_REQUEST);
 	while (list($key, $val) = each($process)) {
 		foreach ($val as $k => $v) {
 			unset($process[$key][$k]);
@@ -68,12 +76,13 @@ function autoload($class_name) {
 		'HumbleHttpAgent' => 'humble-http-agent/HumbleHttpAgent.php',
 		'SimplePie_HumbleHttpAgent' => 'humble-http-agent/SimplePie_HumbleHttpAgent.php',
 		'CookieJar' => 'humble-http-agent/CookieJar.php',
+		'HumbleHttpAgentDummy' => 'humble-http-agent/HumbleHttpAgentDummy.php',
 		// Include Zend Cache to improve performance (cache results)
 		'Zend_Cache' => 'Zend/Cache.php',
 		// Language detect
 		'Text_LanguageDetect' => 'language-detect/LanguageDetect.php',
-		// HTML5 Lib
-		'HTML5_Parser' => 'html5/Parser.php',
+		// HTML5 PHP (can't be used unless PHP version is >= 5.3)
+		'HTML5' => 'html5php/HTML5.php',		
 		// htmLawed - used if XSS filter is enabled (xss_filter)
 		'htmLawed' => 'htmLawed/htmLawed.php'
 	);
@@ -87,6 +96,7 @@ function autoload($class_name) {
 }
 spl_autoload_register('autoload');
 require dirname(__FILE__).'/libraries/simplepie/autoloader.php';
+require dirname(__FILE__).'/libraries/html5php/autoloader.php';
 
 ////////////////////////////////
 // Load config file
@@ -104,6 +114,11 @@ require dirname(__FILE__).'/config.php';
 header('X-Robots-Tag: noindex, nofollow');
 
 ////////////////////////////////
+// Content security headers
+////////////////////////////////
+header("Content-Security-Policy: script-src 'self'; connect-src 'none'; font-src 'none'; style-src 'self'");
+
+////////////////////////////////
 // Check if service is enabled
 ////////////////////////////////
 if (!$options->enabled) { 
@@ -115,7 +130,9 @@ if (!$options->enabled) {
 // See the config file for debug options.
 ////////////////////////////////
 $debug_mode = false;
-if (isset($_GET['debug'])) {
+$debug_show_raw_html = false;
+$debug_show_parsed_html = false;
+if (isset($_REQUEST['debug'])) {
 	if ($options->debug === true || $options->debug == 'user') {
 		$debug_mode = true;
 	} elseif ($options->debug == 'admin') {
@@ -124,6 +141,8 @@ if (isset($_GET['debug'])) {
 	}
 	if ($debug_mode) {
 		header('Content-Type: text/plain; charset=utf-8');
+		$debug_show_raw_html = ($_REQUEST['debug'] === 'rawhtml');
+		$debug_show_parsed_html = ($_REQUEST['debug'] === 'parsedhtml');
 	} else {
 		if ($options->debug == 'admin') {
 			die('You must be logged in to the <a href="admin/">admin area</a> to see debug output.');
@@ -151,10 +170,10 @@ $options->smart_cache = $options->smart_cache && function_exists('apc_inc');
 ////////////////////////////////
 // Check for feed URL
 ////////////////////////////////
-if (!isset($_GET['url'])) { 
+if (!isset($_REQUEST['url'])) { 
 	die('No URL supplied'); 
 }
-$url = trim($_GET['url']);
+$url = trim($_REQUEST['url']);
 if (strtolower(substr($url, 0, 7)) == 'feed://') {
 	$url = 'http://'.substr($url, 7);
 }
@@ -178,26 +197,30 @@ debug("Supplied URL: $url");
 
 /////////////////////////////////
 // Redirect to hide API key
+// (if in 'full' mode)
 /////////////////////////////////
-if (isset($_GET['key']) && ($key_index = array_search($_GET['key'], $options->api_keys)) !== false) {
+if ((_FF_FTR_MODE == 'full') && isset($_REQUEST['key']) && ($key_index = array_search($_REQUEST['key'], $options->api_keys)) !== false) {
 	$host = $_SERVER['HTTP_HOST'];
 	$path = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
 	$_qs_url = (strtolower(substr($url, 0, 7)) == 'http://') ? substr($url, 7) : $url;
 	$redirect = 'http://'.htmlspecialchars($host.$path).'/makefulltextfeed.php?url='.urlencode($_qs_url);
 	$redirect .= '&key='.$key_index;
-	$redirect .= '&hash='.urlencode(sha1($_GET['key'].$url));
-	if (isset($_GET['html'])) $redirect .= '&html='.urlencode($_GET['html']);
-	if (isset($_GET['max'])) $redirect .= '&max='.(int)$_GET['max'];
-	if (isset($_GET['links'])) $redirect .= '&links='.urlencode($_GET['links']);
-	if (isset($_GET['exc'])) $redirect .= '&exc='.urlencode($_GET['exc']);
-	if (isset($_GET['format'])) $redirect .= '&format='.urlencode($_GET['format']);
-	if (isset($_GET['callback'])) $redirect .= '&callback='.urlencode($_GET['callback']);	
-	if (isset($_GET['l'])) $redirect .= '&l='.urlencode($_GET['l']);
-	if (isset($_GET['xss'])) $redirect .= '&xss';
-	if (isset($_GET['use_extracted_title'])) $redirect .= '&use_extracted_title';
-	if (isset($_GET['content'])) $redirect .= '&content='.urlencode($_GET['content']);
-	if (isset($_GET['summary'])) $redirect .= '&summary='.urlencode($_GET['summary']);
-	if (isset($_GET['debug'])) $redirect .= '&debug';
+	$redirect .= '&hash='.urlencode(sha1($_REQUEST['key'].$url));
+	if (isset($_REQUEST['html'])) $redirect .= '&html='.urlencode($_REQUEST['html']);
+	if (isset($_REQUEST['max'])) $redirect .= '&max='.(int)$_REQUEST['max'];
+	if (isset($_REQUEST['links'])) $redirect .= '&links='.urlencode($_REQUEST['links']);
+	if (isset($_REQUEST['exc'])) $redirect .= '&exc='.urlencode($_REQUEST['exc']);
+	if (isset($_REQUEST['format'])) $redirect .= '&format='.urlencode($_REQUEST['format']);
+	if (isset($_REQUEST['callback'])) $redirect .= '&callback='.urlencode($_REQUEST['callback']);	
+	if (isset($_REQUEST['l'])) $redirect .= '&l='.urlencode($_REQUEST['l']);
+	if (isset($_REQUEST['lang'])) $redirect .= '&lang='.urlencode($_REQUEST['lang']);
+	if (isset($_REQUEST['xss'])) $redirect .= '&xss';
+	if (isset($_REQUEST['use_extracted_title'])) $redirect .= '&use_extracted_title';
+	if (isset($_REQUEST['content'])) $redirect .= '&content='.urlencode($_REQUEST['content']);
+	if (isset($_REQUEST['summary'])) $redirect .= '&summary='.urlencode($_REQUEST['summary']);
+	if (isset($_REQUEST['debug'])) $redirect .= '&debug';
+	if (isset($_REQUEST['parser'])) $redirect .= '&parser='.urlencode($_REQUEST['parser']);
+	if (isset($_REQUEST['proxy'])) $redirect .= '&proxy='.urlencode($_REQUEST['proxy']);
 	if ($debug_mode) {
 		debug('Redirecting to hide access key, follow URL below to continue');
 		debug("Location: $redirect");
@@ -220,20 +243,27 @@ if (!ini_get('date.timezone') || !@date_default_timezone_set(ini_get('date.timez
 ///////////////////////////////////////////////
 // Check if the request is explicitly for an HTML page
 ///////////////////////////////////////////////
-$html_only = (isset($_GET['html']) && ($_GET['html'] == '1' || $_GET['html'] == 'true'));
+$html_only = (isset($_REQUEST['html']) && ($_REQUEST['html'] == '1' || $_REQUEST['html'] == 'true'));
 
 ///////////////////////////////////////////////
 // Check if valid key supplied
 ///////////////////////////////////////////////
 $valid_key = false;
-if (isset($_GET['key']) && isset($_GET['hash']) && isset($options->api_keys[(int)$_GET['key']])) {
-	$valid_key = ($_GET['hash'] == sha1($options->api_keys[(int)$_GET['key']].$url));
+$key_index = false;
+// first check for hidden key using hash (key (int) + hash parameters) (can appear in both simple and full modes)
+if (isset($_REQUEST['key']) && isset($_REQUEST['hash']) && isset($options->api_keys[(int)$_REQUEST['key']])) {
+	$valid_key = ($_REQUEST['hash'] == sha1($options->api_keys[(int)$_REQUEST['key']].$url));
+	if ($valid_key) $key_index = (int)$_REQUEST['key'];
 }
-$key_index = ($valid_key) ? (int)$_GET['key'] : 0;
+// next check for full key (string) passed in request (only simple mode)
+if (!$valid_key && _FF_FTR_MODE === 'simple' && isset($_REQUEST['key'])) {
+	$key_index = array_search($_REQUEST['key'], $options->api_keys);
+	if ($key_index !== false) $valid_key = true;
+}
 if (!$valid_key && $options->key_required) {
 	die('A valid key must be supplied'); 
 }
-if (!$valid_key && isset($_GET['key']) && $_GET['key'] != '') {
+if (!$valid_key && isset($_REQUEST['key']) && $_REQUEST['key'] != '') {
 	die('The entered key is invalid');
 }
 
@@ -248,8 +278,8 @@ if (!url_allowed($url)) die('URL blocked');
 // Max entries
 // see config.php to find these values
 ///////////////////////////////////////////////
-if (isset($_GET['max'])) {
-	$max = (int)$_GET['max'];
+if (isset($_REQUEST['max'])) {
+	$max = (int)$_REQUEST['max'];
 	if ($valid_key) {
 		$max = min($max, $options->max_entries_with_key);
 	} else {
@@ -266,8 +296,8 @@ if (isset($_GET['max'])) {
 ///////////////////////////////////////////////
 // Link handling
 ///////////////////////////////////////////////
-if (isset($_GET['links']) && in_array($_GET['links'], array('preserve', 'footnotes', 'remove'))) {
-	$links = $_GET['links'];
+if (isset($_REQUEST['links']) && in_array($_REQUEST['links'], array('preserve', 'footnotes', 'remove'))) {
+	$links = $_REQUEST['links'];
 } else {
 	$links = 'preserve';
 }
@@ -277,7 +307,7 @@ if (isset($_GET['links']) && in_array($_GET['links'], array('preserve', 'footnot
 ///////////////////////////////////////////////
 $favour_feed_titles = true;
 if ($options->favour_feed_titles == 'user') {
-	$favour_feed_titles = !isset($_GET['use_extracted_title']);
+	$favour_feed_titles = !isset($_REQUEST['use_extracted_title']);
 } else {
 	$favour_feed_titles = $options->favour_feed_titles;
 }
@@ -286,7 +316,7 @@ if ($options->favour_feed_titles == 'user') {
 // Include full content in output?
 ///////////////////////////////////////////////
 if ($options->content === 'user') {
-	if (isset($_GET['content']) && $_GET['content'] === '0') {
+	if (isset($_REQUEST['content']) && $_REQUEST['content'] === '0') {
 		$options->content = false;
 	} else {
 		$options->content = true;
@@ -297,7 +327,7 @@ if ($options->content === 'user') {
 // Include summaries in output?
 ///////////////////////////////////////////////
 if ($options->summary === 'user') {
-	if (isset($_GET['summary']) && $_GET['summary'] === '1') {
+	if (isset($_REQUEST['summary']) && $_REQUEST['summary'] === '1') {
 		$options->summary = true;
 	} else {
 		$options->summary = false;
@@ -308,7 +338,7 @@ if ($options->summary === 'user') {
 // Exclude items if extraction fails
 ///////////////////////////////////////////////
 if ($options->exclude_items_on_fail === 'user') {
-	$exclude_on_fail = (isset($_GET['exc']) && ($_GET['exc'] == '1'));
+	$exclude_on_fail = (isset($_REQUEST['exc']) && ($_REQUEST['exc'] == '1'));
 } else {
 	$exclude_on_fail = $options->exclude_items_on_fail;
 }
@@ -317,8 +347,9 @@ if ($options->exclude_items_on_fail === 'user') {
 // Detect language
 ///////////////////////////////////////////////
 if ($options->detect_language === 'user') {
-	if (isset($_GET['l'])) {
-		$detect_language = (int)$_GET['l'];
+	if (isset($_REQUEST['lang'])) $_REQUEST['l'] = $_REQUEST['lang'];
+	if (isset($_REQUEST['l'])) {
+		$detect_language = (int)$_REQUEST['l'];
 	} else {
 		$detect_language = 1;
 	}
@@ -332,7 +363,7 @@ $use_cld = extension_loaded('cld') && (version_compare(PHP_VERSION, '5.3.0') >= 
 // Check for valid format
 // (stick to RSS (or RSS as JSON) for the time being)
 /////////////////////////////////////
-if (isset($_GET['format']) && $_GET['format'] == 'json') {
+if (isset($_REQUEST['format']) && $_REQUEST['format'] == 'json') {
 	$format = 'json';
 } else {
 	$format = 'rss';
@@ -342,11 +373,11 @@ if (isset($_GET['format']) && $_GET['format'] == 'json') {
 // Should we do XSS filtering?
 /////////////////////////////////////
 if ($options->xss_filter === 'user') {
-	$xss_filter = isset($_GET['xss']);
+	$xss_filter = isset($_REQUEST['xss']) && $_REQUEST['xss'] !== '0';
 } else {
 	$xss_filter = $options->xss_filter;
 }
-if (!$xss_filter && isset($_GET['xss'])) {
+if (!$xss_filter && (isset($_REQUEST['xss']) && $_REQUEST['xss'] !== '0')) {
 	die('XSS filtering is disabled in config');
 }
 
@@ -355,8 +386,8 @@ if (!$xss_filter && isset($_GET['xss'])) {
 // Regex from https://gist.github.com/1217080
 /////////////////////////////////////
 $callback = null;
-if ($format =='json' && isset($_GET['callback'])) {
-	$callback = trim($_GET['callback']);
+if ($format =='json' && isset($_REQUEST['callback'])) {
+	$callback = trim($_REQUEST['callback']);
 	foreach (explode('.', $callback) as $_identifier) {
 		if (!preg_match('/^[a-zA-Z_$][0-9a-zA-Z_$]*(?:\[(?:".+"|\'.+\'|\d+)\])*?$/', $_identifier)) {
 			die('Invalid JSONP callback');
@@ -365,20 +396,78 @@ if ($format =='json' && isset($_GET['callback'])) {
 	debug("JSONP callback: $callback");
 }
 
+///////////////////////////////////////////////
+// Override default HTML parser?
+///////////////////////////////////////////////
+$parser = null;
+if ($options->allow_parser_override && isset($_REQUEST['parser']) && in_array($_REQUEST['parser'], $options->allowed_parsers)) {
+	$parser = $_REQUEST['parser'];
+}
+
+///////////////////////////////////////////////
+// Use proxy?
+///////////////////////////////////////////////
+$proxy = false;
+if (!empty($options->proxy_servers)) {
+	if (isset($_REQUEST['proxy'])) {
+		// We're choosing proxy based on &proxy value (unless it's not allowed...)
+		if (!$options->allow_proxy_override) die('Proxy overriding is disabled.');
+		$proxy = $_REQUEST['proxy'];
+		if ($proxy === '0') {
+			$proxy = false;
+		} elseif ($proxy === '1') {
+			$proxy = true; // random
+		}
+	} else {
+		// We'll use proxy based on config setting
+		$proxy = $options->proxy;
+	}
+	// Is it a valid value (false, true, or one of the proxies in config)
+	if ($proxy !== false && $proxy !== true && !in_array($proxy, array_keys($options->proxy_servers))) {
+		die('Proxy not recognised.');
+	}
+	if ($proxy === false) {
+		debug('Proxy will not be used');
+	} else {
+		if ($proxy === true) {
+			$proxy = array_rand($options->proxy_servers);
+		}
+		if (is_string($options->proxy_servers[$proxy]) && $options->proxy_servers[$proxy] === 'direct') {
+			debug('Proxy will not be used');
+			$proxy = false;
+		} else {
+			debug('Proxy '.$proxy.' will be used.');
+			$proxy = $options->proxy_servers[$proxy];
+		}
+	}
+}
+
 //////////////////////////////////
 // Enable Cross-Origin Resource Sharing (CORS)
 //////////////////////////////////
 if ($options->cors) header('Access-Control-Allow-Origin: *');
 
 //////////////////////////////////
+// Has the HTML been given in the request?
+//////////////////////////////////
+if (isset($_REQUEST['inputhtml']) && _FF_FTR_MODE == 'simple') {
+	// disable multi-page processing (what we have is what we have)
+	$options->singlepage = false;
+	$options->multipage = false;
+	// disable disk caching 
+	$options->caching = false;
+}
+
+//////////////////////////////////
 // Check for cached copy
 //////////////////////////////////
 if ($options->caching) {
 	debug('Caching is enabled...');
-	$cache_id = md5($max.$url.(int)$valid_key.$links.(int)$favour_feed_titles.(int)$options->content.(int)$options->summary.(int)$xss_filter.(int)$exclude_on_fail.$format.$detect_language.(int)isset($_GET['pubsub']));
+	$cache_id = md5($max.$url.(int)$valid_key.$links.(int)$favour_feed_titles.(int)$options->content.(int)$options->summary.
+					(int)$xss_filter.(int)$exclude_on_fail.$format.$detect_language.$parser._FF_FTR_MODE);
 	$check_cache = true;
 	if ($options->apc && $options->smart_cache) {
-		apc_add("cache.$cache_id", 0, 10*60);
+		apc_add("cache.$cache_id", 0, $options->cache_time*60);
 		$apc_cache_hits = (int)apc_fetch("cache.$cache_id");
 		$check_cache = ($apc_cache_hits >= 2);
 		apc_inc("cache.$cache_id");
@@ -417,20 +506,37 @@ if ($options->caching) {
 }
 
 //////////////////////////////////
-// Set Expires header
+// Set cache header
 //////////////////////////////////
 if (!$debug_mode) {
-	header('Expires: ' . gmdate('D, d M Y H:i:s', time()+(60*10)) . ' GMT');
+	if ($options->cache_time) {
+		header('Cache-Control: public, max-age='.($options->cache_time*60));
+		header('Expires: '.gmdate('D, d M Y H:i:s', time()+($options->cache_time*60)).' GMT');
+	}
 }
 
 //////////////////////////////////
 // Set up HTTP agent
 //////////////////////////////////
-$http = new HumbleHttpAgent();
-$http->debug = $debug_mode;
-$http->userAgentMap = $options->user_agents;
-$http->headerOnlyTypes = array_keys($options->content_type_exc);
-$http->rewriteUrls = $options->rewrite_url;
+if (isset($_REQUEST['inputhtml']) && _FF_FTR_MODE == 'simple') {
+	// the user has supplied the HTML, so we use the Dummy agent with
+	// the given HTML (it will always return this HTML)
+	$http = new HumbleHttpAgentDummy($_REQUEST['inputhtml']);
+} else {
+	$_req_options = null;
+	if ($proxy !== false) {
+		$_req_options = array('proxyhost' => $proxy['host']);
+		if (isset($proxy['auth'])) {
+			$_req_options['proxyauth'] = $proxy['auth'];
+		}
+	}
+	$http = new HumbleHttpAgent($_req_options);
+	$http->debug = $debug_mode;
+	$http->userAgentMap = $options->user_agents;
+	$http->headerOnlyTypes = array_keys($options->content_type_exc);
+	$http->rewriteUrls = $options->rewrite_url;
+	unset($_req_options);
+}
 
 //////////////////////////////////
 // Set up Content Extractor
@@ -441,6 +547,7 @@ SiteConfig::$debug = $debug_mode;
 SiteConfig::use_apc($options->apc);
 $extractor->fingerprints = $options->fingerprints;
 $extractor->allowedParsers = $options->allowed_parsers;
+$extractor->parserOverride = $parser;
 
 ////////////////////////////////
 // Get RSS/Atom feed
@@ -497,6 +604,7 @@ if ($html_only || !$result) {
 		public function get_language() { return false; }
 		public function get_image_url() { return false; }
 		public function get_items($start=0, $max=1) { return array(0=>$this->item); }
+		public function get_channel_tags($namespace='', $tag='') { return null; }
 	}
 	class DummySingleItem {
 		public $url;
@@ -518,14 +626,16 @@ if ($html_only || !$result) {
 // Create full-text feed
 ////////////////////////////////////////////
 $output = new FeedWriter();
+if (_FF_FTR_MODE === 'simple') $output->enableSimpleJson();
 $output->setTitle(strip_tags($feed->get_title()));
 $output->setDescription(strip_tags($feed->get_description()));
 $output->setXsl('css/feed.xsl'); // Chrome uses this, most browsers ignore it
-if ($valid_key && isset($_GET['pubsub'])) { // used only on fivefilters.org at the moment
-	$output->addHub('http://fivefilters.superfeedr.com/');
-	$output->addHub('http://pubsubhubbub.appspot.com/');
-	$output->setSelf('http://'.$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI']);
+$ttl = $feed->get_channel_tags(SIMPLEPIE_NAMESPACE_RSS_20, 'ttl');
+if ($ttl !== null) {
+	$ttl = (int)$ttl[0]['data'];
+	$output->setTtl($ttl);
 }
+//$output->setSelf('http://'.$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI']);
 $output->setLink($feed->get_link()); // Google Reader uses this for pulling in favicons
 if ($img_url = $feed->get_image_url()) {
 	$output->setImage($feed->get_title(), $feed->get_link(), $img_url);
@@ -573,23 +683,19 @@ foreach ($items as $key => $item) {
 	}
 	$newitem = $output->createNewItem();
 	$newitem->setTitle($feed_item_title);
-	if ($valid_key && isset($_GET['pubsub'])) { // used only on fivefilters.org at the moment
-		if ($permalink !== false) {
-			$newitem->setLink('http://fivefilters.org/content-only/redirect.php?url='.urlencode($permalink));
-		} else {
-			$newitem->setLink('http://fivefilters.org/content-only/redirect.php?url='.urlencode($item->get_permalink()));
-		}
+	if ($permalink !== false) {
+		$newitem->setLink($permalink);
 	} else {
-		if ($permalink !== false) {
-			$newitem->setLink($permalink);
-		} else {
-			$newitem->setLink($item->get_permalink());
-		}
+		$newitem->setLink($item->get_permalink());
 	}
-	//if ($permalink && ($response = $http->get($permalink, true)) && $response['status_code'] < 300) {
-	// Allowing error codes - some sites return correct content with error status
-	// e.g. prospectmagazine.co.uk returns 403
-	if ($permalink && ($response = $http->get($permalink, true)) && ($response['status_code'] < 300 || $response['status_code'] > 400)) {
+	// Status codes to accept (200 range)
+	// Some sites might return correct content with error status codes
+	// e.g. prospectmagazine.co.uk returns 403 - in some earlier versions of FTR we accepted a wider range of status codes
+	// to allow for such cases:
+	//if ($permalink && ($response = $http->get($permalink, true)) && ($response['status_code'] < 300 || $response['status_code'] > 400)) {
+	// With the introduction of proxy support in 3.3, we're limiting range of acceptable status codes to avoid proxy
+	// errors being treated as valid responses.
+	if ($permalink && ($response = $http->get($permalink, true)) && ($response['status_code'] < 300)) {
 		$effective_url = $response['effective_url'];
 		if (!url_allowed($effective_url)) continue;
 		// check if action defined for returned Content-Type
@@ -612,9 +718,16 @@ foreach ($items as $key => $item) {
 			// remove strange things
 			$html = str_replace('</[>', '', $html);
 			$html = convert_to_utf8($html, $response['headers']);
+			// if user has asked to see raw HTML from remote server, show it and exit.
+			if ($debug_show_raw_html) {
+				debug("Here are the HTTP response headers from the remote server:");
+				echo $response['headers'];
+				debug("Here's the raw HTML (after attempted UTF-8 conversion):");
+				die($html);
+			}
 			// check site config for single page URL - fetch it if found
 			$is_single_page = false;
-			if ($single_page_response = getSinglePage($item, $html, $effective_url)) {
+			if ($options->singlepage && ($single_page_response = getSinglePage($item, $html, $effective_url))) {
 				$is_single_page = true;
 				$effective_url = $single_page_response['effective_url'];
 				// check if action defined for returned Content-Type
@@ -647,6 +760,11 @@ foreach ($items as $key => $item) {
 			debug('Attempting to extract content');
 			$extract_result = $extractor->process($html, $effective_url);
 			$readability = $extractor->readability;
+			// if user has asked to see parsed HTML, show it and exit.
+			if ($debug_show_parsed_html) {
+				debug("Here's the full HTML after it's been parsed by Full-Text RSS:");
+				die($readability->dom->saveXML($readability->dom->documentElement));
+			}
 			$content_block = ($extract_result) ? $extractor->getContent() : null;			
 			$extracted_title = ($extract_result) ? $extractor->getTitle() : '';
 			// Deal with multi-page articles
@@ -731,6 +849,14 @@ foreach ($items as $key => $item) {
 			if (($links == 'footnotes') && (strpos($effective_url, 'wikipedia.org') === false)) {
 				$readability->addFootnotes($content_block);
 			}
+			// normalise
+			$content_block->normalize();
+			// remove empty text nodes
+			foreach ($content_block->childNodes as $_n) {
+				if ($_n->nodeType === XML_TEXT_NODE && trim($_n->textContent) == '') {
+					$content_block->removeChild($_n);
+				}
+			}
 			// remove nesting: <div><div><div><p>test</p></div></div></div> = <p>test</p>
 			while ($content_block->childNodes->length == 1 && $content_block->firstChild->nodeType === XML_ELEMENT_NODE) {
 				// only follow these tag names
@@ -740,8 +866,10 @@ foreach ($items as $key => $item) {
 			}
 			// convert content block to HTML string
 			// Need to preserve things like body: //img[@id='feature']
-			if (in_array(strtolower($content_block->tagName), array('div', 'article', 'section', 'header', 'footer'))) {
+			if (in_array(strtolower($content_block->tagName), array('div', 'article', 'section', 'header', 'footer', 'li', 'td'))) {
 				$html = $content_block->innerHTML;
+			//} elseif (in_array(strtolower($content_block->tagName), array('td', 'li'))) {
+			//	$html = '<div>'.$content_block->innerHTML.'</div>';
 			} else {
 				$html = $content_block->ownerDocument->saveXML($content_block); // essentially outerHTML
 			}
@@ -758,11 +886,7 @@ foreach ($items as $key => $item) {
 		}
 	}
 
-	if ($valid_key && isset($_GET['pubsub'])) { // used only on fivefilters.org at the moment
-		$newitem->addElement('guid', 'http://fivefilters.org/content-only/redirect.php?url='.urlencode($item->get_permalink()), array('isPermaLink'=>'false'));
-	} else {
-		$newitem->addElement('guid', $item->get_permalink(), array('isPermaLink'=>'true'));
-	}
+	$newitem->addElement('guid', $item->get_permalink(), array('isPermaLink'=>'true'));
 	
 	// filter xss?
 	if ($xss_filter) {
@@ -935,16 +1059,20 @@ if (!$debug_mode) {
 				// apc purge code adapted from from http://www.thimbleopensource.com/tutorials-snippets/php-apc-expunge-script
 				$_apc_data = apc_cache_info('user');
 				foreach ($_apc_data['cache_list'] as $_apc_item) {
-				  if ($_apc_item['ttl'] > 0 && ($_apc_item['ttl'] + $_apc_item['creation_time'] < time())) {
-					apc_delete($_apc_item['info']);
-				  }
+					// APCu keys incompatible with original APC keys, apparently fixed in newer versions, but not in 4.0.4
+					// So let's look for those keys and fix here (ctime -> creation_time, key -> info).
+					if (isset($_apc_item['ctime'])) $_apc_item['creation_time'] = $_apc_item['ctime'];
+					if (isset($_apc_item['key'])) $_apc_item['info'] = $_apc_item['key'];
+					if ($_apc_item['ttl'] > 0 && ($_apc_item['ttl'] + $_apc_item['creation_time'] < time())) {
+						apc_delete($_apc_item['info']);
+					}
 				}
 			}
 		}
 	}
 	if ($add_to_cache) {
 		ob_start();
-		$output->genarateFeed();
+		$output->generateFeed();
 		$output = ob_get_contents();
 		ob_end_clean();
 		if ($html_only && $item_count == 0) {
@@ -955,7 +1083,7 @@ if (!$debug_mode) {
 		}
 		echo $output;
 	} else {
-		$output->genarateFeed();
+		$output->generateFeed();
 	}
 	if ($callback) echo ');';
 }
@@ -1022,8 +1150,7 @@ function url_allowed($url) {
 // (uses HTTP headers and HTML to find encoding)
 // adapted from http://stackoverflow.com/questions/910793/php-detect-encoding-and-make-everything-utf-8
 //////////////////////////////////////////////
-function convert_to_utf8($html, $header=null)
-{
+function convert_to_utf8($html, $header=null) {
 	$encoding = null;
 	if ($html || $header) {
 		if (is_array($header)) $header = implode("\n", $header);
@@ -1245,7 +1372,7 @@ function get_cache() {
 	static $cache = null;
 	if ($cache === null) {
 		$frontendOptions = array(
-			'lifetime' => 10*60, // cache lifetime of 10 minutes
+			'lifetime' => $options->cache_time*60, // cache lifetime
 			'automatic_serialization' => false,
 			'write_control' => false,
 			'automatic_cleaning_factor' => $options->cache_cleanup,

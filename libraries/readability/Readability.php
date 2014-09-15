@@ -12,7 +12,7 @@
 * More information: http://fivefilters.org/content-only/
 * License: Apache License, Version 2.0
 * Requires: PHP5
-* Date: 2012-09-19
+* Date: 2014-03-27
 * 
 * Differences between the PHP port and the original
 * ------------------------------------------------------
@@ -71,7 +71,7 @@ class Readability
 	public $revertForcedParagraphElements = true;
 	public $articleTitle;
 	public $articleContent;
-	public $dom;
+	public $dom = null;
 	public $url = null; // optional - URL where HTML was retrieved
 	public $debug = false;
 	public $lightClean = true; // preserves more content (experimental) added 2012-09-19
@@ -95,7 +95,7 @@ class Readability
 		// 'trimRe' => '/^\s+|\s+$/g', // PHP has trim()
 		'normalize' => '/\s{2,}/',
 		'killBreaks' => '/(<br\s*\/?>(\s|&nbsp;?)*){1,}/',
-		'video' => '!//(player\.|www\.)?(youtube|vimeo|viddler)\.com!i',
+		'video' => '!//(player\.|www\.)?(youtube\.com|vimeo\.com|viddler\.com|twitch\.tv)!i',
 		'skipFootnoteLink' => '/^\s*(\[?[a-z0-9]{1,2}\]?|^|edit|citation needed)\s*$/i'
 	);	
 	
@@ -118,9 +118,12 @@ class Readability
 		$html = preg_replace($this->regexps['replaceFonts'], '<$1span>', $html);
 		$html = mb_convert_encoding($html, 'HTML-ENTITIES', "UTF-8");
 		if (trim($html) == '') $html = '<html></html>';
-		if ($parser=='html5lib' && ($this->dom = HTML5_Parser::parse($html))) {
-			// all good
-		} else {
+		if ($parser=='html5lib' || $parser=='html5php') {
+			if (version_compare(PHP_VERSION, '5.3.0') >= 0) {
+				$this->dom = HTML5::loadHTML($html);
+			}
+		}
+		if ($this->dom === null) {
 			$this->dom = new DOMDocument();
 			$this->dom->preserveWhiteSpace = false;
 			@$this->dom->loadHTML($html);

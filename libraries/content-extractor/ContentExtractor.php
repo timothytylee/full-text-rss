@@ -5,10 +5,10 @@
  * Uses patterns specified in site config files and auto detection (hNews/PHP Readability) 
  * to extract content from HTML files.
  * 
- * @version 1.0
- * @date 2013-02-05
+ * @version 1.1
+ * @date 2014-03-28
  * @author Keyvan Minoukadeh
- * @copyright 2013 Keyvan Minoukadeh
+ * @copyright 2014 Keyvan Minoukadeh
  * @license http://www.gnu.org/licenses/agpl-3.0.html AGPL v3
  */
 
@@ -40,7 +40,9 @@ class ContentExtractor
 	protected $body;
 	protected $success = false;
 	protected $nextPageUrl;
-	public $allowedParsers = array('libxml', 'html5lib');
+	public $allowedParsers = array('libxml', 'html5php');
+	public $defaultParser = 'libxml';
+	public $parserOverride = null;
 	public $fingerprints = array();
 	public $readability;
 	public $debug = false;
@@ -184,10 +186,18 @@ class ContentExtractor
 		}
 		
 		// load and parse html
-		$_parser = $this->config->parser();
+		if ($this->parserOverride) {
+			// from querystring: &parser=xxx
+			$_parser = $this->parserOverride;
+		} else {
+			// from site config file: parser: xxx
+			$_parser = $this->config->parser();
+		}
+		// for backword compatibility...
+		if ($_parser == 'html5lib') $_parser = 'html5php';
 		if (!in_array($_parser, $this->allowedParsers)) {
-			$this->debug("HTML parser $_parser not listed, using libxml instead");
-			$_parser = 'libxml';
+			$this->debug("HTML parser $_parser not listed, using ".$this->defaultParser." instead");
+			$_parser = $this->defaultParser;
 		}
 		$this->debug("Attempting to parse HTML with $_parser");
 		$this->readability = new Readability($html, $url, $_parser);
@@ -310,7 +320,9 @@ class ContentExtractor
 			if ($elems && $elems->length > 0) {
 				$this->debug('Stripping '.$elems->length.' elements (strip)');
 				for ($i=$elems->length-1; $i >= 0; $i--) {
-					$elems->item($i)->parentNode->removeChild($elems->item($i));
+					if ($elems->item($i)->parentNode) {
+						$elems->item($i)->parentNode->removeChild($elems->item($i));
+					}
 				}
 			}
 		}
@@ -456,7 +468,7 @@ class ContentExtractor
 				
 				if ($detect_date) {
 					// check for time element with pubdate attribute
-					$elems = @$xpath->query(".//time[@pubdate] | .//abbr[contains(concat(' ',normalize-space(@class),' '),' published ')]", $hentry);
+					$elems = @$xpath->query(".//time[@pubdate or @pubDate] | .//abbr[contains(concat(' ',normalize-space(@class),' '),' published ')]", $hentry);
 					if ($elems && $elems->length > 0) {
 						$this->date = strtotime(trim($elems->item(0)->textContent));
 						// remove date from document
@@ -572,6 +584,55 @@ class ContentExtractor
 				$detect_body = false;
 			}
 		}
+
+		// check for elements marked with itemprop="articleBody" (from Schema.org)
+		if ($detect_body) {
+			$elems = @$xpath->query("//*[@itemprop='articleBody']", $this->readability->dom);
+			if ($elems && $elems->length > 0) {
+				$this->debug('body found (Schema.org itemprop="articleBody")');
+				if ($elems->length == 1) {
+					// what if it's empty? (content placed outside an empty itemprop='articleBody' element)
+					$e = $elems->item(0);
+					if (($e->tagName == 'img') || (trim($e->textContent) != '')) {
+						$this->body = $elems->item(0);
+						// prune (clean up elements that may not be content)
+						if ($this->config->prune()) {
+							$this->debug('Pruning content');
+							$this->readability->prepArticle($this->body);
+						}
+						$detect_body = false;
+					} else {
+						$this->debug('Schema.org: skipping itemprop="articleBody" - appears not to contain content');
+					}
+					unset($e);
+				} else {
+					$this->body = $this->readability->dom->createElement('div');
+					$this->debug($elems->length.' itemprop="articleBody" elems found');
+					foreach ($elems as $elem) {
+						if (!isset($elem->parentNode)) continue;
+						$isDescendant = false;
+						foreach ($this->body->childNodes as $parent) {
+							if ($this->isDescendant($parent, $elem)) {
+								$isDescendant = true;
+								break;
+							}
+						}
+						if ($isDescendant) {
+							$this->debug('Element is child of another body element, skipping.');
+						} else {
+							// prune (clean up elements that may not be content)
+							if ($this->config->prune()) {
+								$this->debug('Pruning content');
+								$this->readability->prepArticle($elem);
+							}								
+							$this->debug('Element added to body');									
+							$this->body->appendChild($elem);
+						}
+					}
+					$detect_body = false;
+				}
+			}
+		}
 		
 		// Find author in rel="author" marked element
 		// We only use this if there's exactly one.
@@ -594,7 +655,7 @@ class ContentExtractor
 		// For the same reason given above, we only use this
 		// if there's exactly one element.
 		if ($detect_date) {
-			$elems = @$xpath->query("//time[@pubdate]", $this->readability->dom);
+			$elems = @$xpath->query("//time[@pubdate or @pubDate]", $this->readability->dom);
 			if ($elems && $elems->length == 1) {
 				$this->date = strtotime(trim($elems->item(0)->textContent));
 				// remove date from document

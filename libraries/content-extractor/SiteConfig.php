@@ -159,6 +159,7 @@ class SiteConfig
 		$key = strtolower($key);
 		if (substr($key, 0, 4) == 'www.') $key = substr($key, 4);
 		if ($config->cache_key) $key = $config->cache_key;
+		$key .= '.'.self::get_key_suffix();		
 		self::$config_cache[$key] = $config;
 		if (self::$apc && $use_apc) {
 			self::debug("Adding site config to APC cache with key sc.$key");
@@ -169,6 +170,7 @@ class SiteConfig
 	
 	public static function is_cached($key) {
 		$key = strtolower($key);
+		$key .= '.'.self::get_key_suffix();
 		if (substr($key, 0, 4) == 'www.') $key = substr($key, 4);
 		if (array_key_exists($key, self::$config_cache)) {
 			return true;
@@ -198,6 +200,16 @@ class SiteConfig
 		}
 	}
 	
+	// This is used to make sure that when a different primary folder is chosen
+	// The key for the cached result includes that folder choice.
+	// Otherwise, a subsequent request choosing a different folder
+	// could return the wrong cached config.
+	public static function get_key_suffix() {
+		$key_suffix = basename(self::$config_path);
+		if ($key_suffix === 'custom') $key_suffix = '';
+		return $key_suffix;
+	}
+
 	// returns SiteConfig instance if an appropriate one is found, false otherwise
 	// if $exact_host_match is true, we will not look for wildcard config matches
 	// by default if host is 'test.example.org' we will look for and load '.example.org.txt' if it exists
@@ -216,13 +228,20 @@ class SiteConfig
 			}
 		}
 		
+		// Which primary folder should we look inside?
+		// If it's not the default ('custom'), we need
+		// a key suffix to distinguish site config fules
+		// held in this folder from those in other folders.
+		$key_suffix = self::get_key_suffix();
+
 		// look for site config file in primary folder
 		self::debug(". looking for site config for $host in primary folder");
 		foreach ($try as $h) {
-			if (array_key_exists($h, self::$config_cache)) {
+			$h_key = "$h.$key_suffix";
+			if (array_key_exists($h_key, self::$config_cache)) {
 				self::debug("... site config for $h already loaded in this request");
-				return self::$config_cache[$h];
-			} elseif (self::$apc && ($sconfig = apc_fetch("sc.$h"))) {
+				return self::$config_cache[$h_key];
+			} elseif (self::$apc && ($sconfig = apc_fetch("sc.$h_key"))) {
 				self::debug("... site config for $h in APC cache");
 				return $sconfig;
 			} elseif (file_exists(self::$config_path."/$h.txt")) {

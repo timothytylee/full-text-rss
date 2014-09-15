@@ -107,6 +107,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 				if ($options->apc && function_exists('apc_delete') && function_exists('apc_cache_info')) {
 					$_apc_data = apc_cache_info('user');
 					foreach ($_apc_data['cache_list'] as $_apc_item) {
+						// APCu keys incompatible with original APC keys, apparently fixed in newer versions, but not in 4.0.4
+						// So let's look for those keys and fix here (key -> info).				
+						if (isset($_apc_item['key'])) $_apc_item['info'] = $_apc_item['key'];						
 						if (substr($_apc_item['info'], 0, 3) == 'sc.') {
 							apc_delete($_apc_item['info']);
 						}

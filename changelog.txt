@@ -2,6 +2,26 @@ FiveFilters.org: Full-Text RSS
 http://fivefilters.org/content-only/
 CHANGELOG
 ------------------------------------
+3.3 (2014-05-13)
+ - Content extractor now looks for Schema.org articleBody elements
+ - New endpoint extract.php for developers looking for simpler JSON results (no RSS as input/output)
+ - New endpoint extract.php accepts POST requests and HTML as input (inputhtml request parameter)
+ - Proxy support added (proxy servers can now be added to the config file, see $options->proxy_servers, ->proxy and ->allow_proxy_override)
+ - New HTML5 parser: HTML5Lib has been replaced by HTML5-PHP (the old one had too many problems)
+ - New config option: cache time ($options->cache_time)
+ - New config option: enable/disable single-page retrieval ($options->singlepage)
+ - New config option: allow HTML parser override through querystring ($options->allow_parser_override)
+ - New request parameter: parser - use it to force new HTML5 parser to be used, &parser=html5php (it will be slower)
+ - Expanded debug request parameter: &debug=rawhtml (shows original response headers and body), &debug=parsedhtml (shows response body after parsing)
+ - APC stats page now expects APCu (older version of APC still supported, but stats within admin area won't be viewable)
+ - Auto update of site-specific extraction rules fixed
+ - Content security HTTP headers now used for the feed preview
+ - Request parameters and response examples now listed in a table on the index page (new Request Parameters tab)
+ - Compatibility test file updated to show if HTML5-PHP parser is supported (PHP 5.3 dependency), and to test for HHVM (not yet supported)
+ - Config option removed: $options->registration_key
+ - Preserve TTL element in RSS 2.0 feeds
+ - Other minor fixes/improvements
+
 3.2 (2013-05-14)
  - A short excerpt from the first few lines of the extracted content can now be included in the output (pass &summary=1 in querystring, see $options->summary in config file for more info)
  - Full content can now be excluded from the output (pass &content=0 in querystring, see $options->content in config file for more info) 

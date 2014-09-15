@@ -6,7 +6,7 @@ define('JSONP', 3, true);
  /**
  * Univarsel Feed Writer class
  *
- * Genarate RSS2 or JSON (original: RSS 1.0, RSS2.0 and ATOM Feed)
+ * Generate RSS2 or JSON (original: RSS 1.0, RSS2.0 and ATOM Feed)
  *
  * Modified for FiveFilters.org's Full-Text RSS project
  * to allow for inclusion of hubs, JSON output. 
@@ -26,6 +26,7 @@ define('JSONP', 3, true);
 	 private $CDATAEncoding = array();  // The tag names which have to encoded as CDATA
 	 private $xsl			= null;		// stylesheet to render RSS (used by Chrome)
 	 private $json			= null;		// JSON object
+	 private $simplejson	= false;
 	 
 	 private $version   = null; 
 	
@@ -52,6 +53,10 @@ define('JSONP', 3, true);
 
 	// Start # public functions ---------------------------------------------
 	
+	public function enableSimpleJson($enable=true) {
+		$this->simplejson = $enable;
+	}
+
 	/**
 	* Set a channel element
 	* @access   public
@@ -82,12 +87,12 @@ define('JSONP', 3, true);
 	}
 	
 	/**
-	* Genarate the actual RSS/JSON file
+	* Generate the actual RSS/JSON file
 	* 
 	* @access   public
 	* @return   void
 	*/ 
-	public function genarateFeed()
+	public function generateFeed()
 	{
 		if ($this->version == RSS2) {
 			header('Content-type: text/xml; charset=UTF-8');
@@ -106,7 +111,46 @@ define('JSONP', 3, true);
 		$this->printItems();
 		$this->printTale();
 		if ($this->version == JSON || $this->version == JSONP) {
-			echo json_encode($this->json);
+			if (!$this->simplejson) {
+				echo json_encode($this->json);
+			} else {
+				$simplejson = new stdClass();
+				if (is_array($this->json->rss['channel']->item)) {
+					// get first item
+					$jsonitem = $this->json->rss['channel']->item[0];
+				} else {
+					$jsonitem = $this->json->rss['channel']->item;
+				}
+				// defaults
+				$simplejson->title = null;
+				$simplejson->excerpt = null;
+				$simplejson->date = null;
+				$simplejson->author = null;
+				$simplejson->language = null;
+				$simplejson->url = null;
+				$simplejson->effective_url = null;
+				$simplejson->content = null;
+				// actual values
+				$simplejson->url = $jsonitem->link;
+				$simplejson->effective_url = $jsonitem->dc_identifier;
+				if (isset($jsonitem->title)) $simplejson->title = $jsonitem->title;
+				if (isset($jsonitem->dc_language)) $simplejson->language = $jsonitem->dc_language;
+				if (isset($jsonitem->content_encoded)) {
+					$simplejson->content = $jsonitem->content_encoded;
+					if (isset($jsonitem->description)) {
+						$simplejson->excerpt = $jsonitem->description;
+					}
+				} else {
+					$simplejson->content = $jsonitem->description;
+				}
+				if (isset($jsonitem->dc_creator)) {
+					$simplejson->author = $jsonitem->dc_creator;
+				}
+				if (isset($jsonitem->pubDate)) {
+					$simplejson->date = gmdate(DATE_ATOM, strtotime($jsonitem->pubDate));
+				}
+				echo json_encode($simplejson);
+			}
 		}
 	}
 	
@@ -175,7 +219,19 @@ define('JSONP', 3, true);
 	public function setXsl($xsl)
 	{
 		$this->xsl = $xsl;    
-	}	
+	}
+
+	/**
+	* Set TTL
+	* 
+	* @access   public
+	* @param    int time to live (minutes)
+	* @return   void
+	*/
+	public function setTtl($ttl)
+	{
+		$this->setChannelElement('ttl', (int)$ttl);
+	}		
 	
 	/**
 	* Set self URL
@@ -196,10 +252,9 @@ define('JSONP', 3, true);
 	* @param    srting  value of 'description' channel tag
 	* @return   void
 	*/
-	public function setDescription($desciption)
-	{
-		$tag = ($this->version == ATOM)? 'subtitle' : 'description'; 
-		$this->setChannelElement($tag, $desciption);
+	public function setDescription($description)
+	{ 
+		$this->setChannelElement('description', $description);
 	}
 	
 	/**
@@ -404,9 +459,9 @@ define('JSONP', 3, true);
 			echo $this->endItem();
 			if ($this->version == JSON || $this->version == JSONP) {
 				if (count($this->items) > 1) {
-					$this->json->rss['channel']->item[] = $json_item;
+					$this->json->rss['channel']->item[] = (object)$json_item;
 				} else {
-					$this->json->rss['channel']->item = $json_item;
+					$this->json->rss['channel']->item = (object)$json_item;
 				}
 			}
 		}

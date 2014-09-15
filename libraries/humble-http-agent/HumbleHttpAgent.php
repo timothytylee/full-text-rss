@@ -7,11 +7,11 @@
  * For environments which do not have these options, it reverts to standard sequential 
  * requests (using file_get_contents())
  * 
- * @version 1.4
- * @date 2013-05-10
+ * @version 1.5
+ * @date 2014-03-28
  * @see http://php.net/HttpRequestPool
  * @author Keyvan Minoukadeh
- * @copyright 2011-2013 Keyvan Minoukadeh
+ * @copyright 2011-2014 Keyvan Minoukadeh
  * @license http://www.gnu.org/licenses/agpl-3.0.html AGPL v3
  */
 
@@ -31,6 +31,7 @@ class HumbleHttpAgent
 	protected $maxParallelRequests = 5;
 	protected $cache = null; //TODO
 	protected $httpContext;
+	protected $curlOptions;
 	protected $minimiseMemoryUse = false; //TODO
 	protected $method;
 	protected $cookieJar;
@@ -80,6 +81,7 @@ class HumbleHttpAgent
 		// create cookie jar
 		$this->cookieJar = new CookieJar();
 		// set request options (redirect must be 0)
+		// HTTP PECL (http://php.net/manual/en/http.request.options.php)
 		$this->requestOptions = array(
 			'timeout' => 15,
 			'connecttimeout' => 15,
@@ -90,6 +92,7 @@ class HumbleHttpAgent
 		if (is_array($requestOptions)) {
 			$this->requestOptions = array_merge($this->requestOptions, $requestOptions);
 		}
+		// HTTP file_get_contents
 		$this->httpContext = array(
 			'http' => array(
 				'ignore_errors' => true,
@@ -98,6 +101,23 @@ class HumbleHttpAgent
 				'header' => "Accept: */*\r\n"
 				)
 			);
+		// HTTP cURL
+		$this->curlOptions = array(
+			CURLOPT_CONNECTTIMEOUT => $this->requestOptions['timeout'],
+			CURLOPT_TIMEOUT => $this->requestOptions['timeout']
+			);
+		// Use proxy?
+		if ($this->requestOptions['proxyhost']) {
+			// For file_get_contents (see http://stackoverflow.com/a/1336419/407938)			
+			$this->httpContext['http']['proxy'] = 'tcp://'.$this->requestOptions['proxyhost'];
+			$this->httpContext['http']['request_fulluri'] = true;
+			// For cURL (see http://stackoverflow.com/a/9247672/407938)
+			$this->curlOptions[CURLOPT_PROXY] = $this->requestOptions['proxyhost'];
+			if (isset($this->requestOptions['proxyauth'])) {
+				$this->httpContext['http']['header'] .= "Proxy-Authorization: Basic ".base64_encode($this->requestOptions['proxyauth'])."\r\n";
+				$this->curlOptions[CURLOPT_PROXYUSERPWD] = $this->requestOptions['proxyauth'];
+			}
+		}
 	}
 	
 	protected function debug($msg) {
@@ -168,7 +188,7 @@ class HumbleHttpAgent
 	public function getMetaRefreshURL($url, $html) {
 		if ($html == '') return false;
 		// <meta HTTP-EQUIV="REFRESH" content="0; url=http://www.bernama.com/bernama/v6/newsindex.php?id=943513">
-		if (!preg_match('!<meta http-equiv=["\']?refresh["\']? content=["\']?[0-9];\s*url=["\']?([^"\'>]+)["\']*>!i', $html, $match)) {
+		if (!preg_match('!<meta http-equiv=["\']?refresh["\']? content=["\']?[0-9];\s*url=["\']?([^"\'>]+)["\']?!i', $html, $match)) {
 			return false;
 		}
 		$redirect_url = $match[1];
@@ -443,10 +463,7 @@ class HumbleHttpAgent
 							$this->debug("......sending cookies: $cookies");
 							$headers[] = 'Cookie: '.$cookies;
 						}
-						$httpRequest = new RollingCurlRequest($req_url, $_meth, null, $headers, array(
-							CURLOPT_CONNECTTIMEOUT => $this->requestOptions['timeout'],
-							CURLOPT_TIMEOUT => $this->requestOptions['timeout']
-							));
+						$httpRequest = new RollingCurlRequest($req_url, $_meth, null, $headers, $this->curlOptions);
 						$httpRequest->set_original_url($orig);
 						$this->requests[$orig] = array('headers'=>null, 'body'=>null, 'httpRequest'=>$httpRequest);
 						$this->requests[$orig]['original_url'] = $orig; // TODO: is this needed anymore?
@@ -661,7 +678,7 @@ class HumbleHttpAgent
 		*/
 		if ($remove && $response) unset($this->requests[$url]);
 		if ($gzdecode && stripos($response['headers'], 'Content-Encoding: gzip')) {
-			if ($html = gzdecode($response['body'])) {
+			if ($html = @gzdecode($response['body'])) {
 				$response['body'] = $html;
 			}
 		}

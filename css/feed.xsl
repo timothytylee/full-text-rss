@@ -6,9 +6,7 @@
 <html>
   <head>
     <title><xsl:value-of select="$title"/> (full-text feed)</title>
-    <style type="text/css">
-    @import url(css/feed.css);
-    </style>
+    <link rel="stylesheet" type="text/css" href="css/feed.css" />
   </head>
   <body>
     <div id="explanation">

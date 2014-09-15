@@ -16,9 +16,10 @@ SimplePie.org. We have kept most of their checks intact as we use SimplePie in o
 http://github.com/simplepie/simplepie/tree/master/compatibility_test/
 */
 
-$app_name = 'Full-Text RSS 3.2';
+$app_name = 'Full-Text RSS 3.3';
 
-$php_ok = (function_exists('version_compare') && version_compare(phpversion(), '5.2.0', '>='));
+// Full-Text RSS is not yet compatible with HHVM, that's why we check for it with HHVM_VERSION.
+$php_ok = (function_exists('version_compare') && version_compare(phpversion(), '5.2.0', '>=') && !defined('HHVM_VERSION'));
 $pcre_ok = extension_loaded('pcre');
 $zlib_ok = extension_loaded('zlib');
 $mbstring_ok = extension_loaded('mbstring');
@@ -295,7 +296,7 @@ div.chunk {
 										<?php if ($tidy_ok): ?>
 											<li><strong>Tidy:</strong> You have <code>Tidy</code> support installed.  No problems here.</li>
 										<?php else: ?>
-											<li class="highlight"><strong>Tidy:</strong> The <code>Tidy</code> extension is not available.  <?php echo $app_name; ?> should still work with most feeds/articles, but you may experience problems with some.</li>
+											<li class="highlight"><strong>Tidy:</strong> The <code>Tidy</code> extension is not available.  <?php echo $app_name; ?> should still work with most feeds/articles, but you may experience problems with some. For problem feeds we recommend you use the HTML5 parser.</li>
 										<?php endif; ?>
 										
 										<?php if ($curl_ok): ?>
@@ -362,7 +363,7 @@ div.chunk {
 			?>
 			<p class="highlight"><strong><?php echo $http_type; ?></strong> will be used on this server.</p>
 			
-			<h4>Alternative PHP Cache (APC)</h4>
+			<h4>Alternative PHP Cache (APC/APCu)</h4>
 			<p>Full-Text RSS can make use of APC's memory cache to store site config files (when requested for the first time). This is not required, but if available it may improve performance slightly by reducing disk access.</p>
 			<?php
 			if (function_exists('apc_add')) {
@@ -372,6 +373,16 @@ div.chunk {
 			}
 			?>
 			
+			<h4>HTML parser</h4>
+			<p>Full-Text RSS uses the fast libxml parser (the default PHP parser) but it can also make use of HTML5-PHP (an HTML5 parser written in PHP) if your version of PHP supports it. The latter might produce better results for some sites, especially if Tidy is not available on your server, however, it is slower than libxml.</p>
+			<?php
+			if (version_compare(PHP_VERSION, '5.3.0') >= 0) {
+				echo '<p class="highlight"><strong>HTML5-PHP</strong> can be used on this server.</p>';
+			} else {
+				echo '<p class="highlight">You need at least PHP 5.3 to be able to use HTML5-PHP.</p>';
+			}
+			?>
+
 			<h4>Language detection</h4>
 			<p>Full-Text RSS can detect the language of each article processed. This occurs using <a href="http://pear.php.net/package/Text_LanguageDetect">Text_LanguageDetect</a> or <a href="https://github.com/lstrojny/php-cld">PHP-CLD</a> (if available).</p>
 			<?php
