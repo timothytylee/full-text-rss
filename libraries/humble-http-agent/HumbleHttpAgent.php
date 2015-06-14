@@ -394,7 +394,7 @@ class HumbleHttpAgent
 								// for AJAX sites, e.g. Blogger with its dynamic views templates.
 								// Based on Google's spec: https://developers.google.com/webmasters/ajax-crawling/docs/specification
 								if (isset($this->requests[$orig]['body'])) {
-									$redirectURL = $this->getRedirectURLfromHTML($this->requests[$orig]['effective_url'], substr($this->requests[$orig]['body'], 0, 4000));
+									$redirectURL = $this->getRedirectURLfromHTML($this->requests[$orig]['effective_url'], substr($this->requests[$orig]['body'], 0, 150000));
 									if ($redirectURL) {
 										$this->redirectQueue[$orig] = $redirectURL;
 									}
@@ -515,7 +515,7 @@ class HumbleHttpAgent
 							// for AJAX sites, e.g. Blogger with its dynamic views templates.
 							// Based on Google's spec: https://developers.google.com/webmasters/ajax-crawling/docs/specification
 							if (isset($this->requests[$orig]['body'])) {
-								$redirectURL = $this->getRedirectURLfromHTML($this->requests[$orig]['effective_url'], substr($this->requests[$orig]['body'], 0, 4000));
+								$redirectURL = $this->getRedirectURLfromHTML($this->requests[$orig]['effective_url'], substr($this->requests[$orig]['body'], 0, 150000));
 								if ($redirectURL) {
 									$this->redirectQueue[$orig] = $redirectURL;
 								}
@@ -601,7 +601,7 @@ class HumbleHttpAgent
 								// for AJAX sites, e.g. Blogger with its dynamic views templates.
 								// Based on Google's spec: https://developers.google.com/webmasters/ajax-crawling/docs/specification
 								if (isset($this->requests[$orig]['body'])) {
-									$redirectURL = $this->getRedirectURLfromHTML($this->requests[$orig]['effective_url'], substr($this->requests[$orig]['body'], 0, 4000));
+									$redirectURL = $this->getRedirectURLfromHTML($this->requests[$orig]['effective_url'], substr($this->requests[$orig]['body'], 0, 150000));
 									if ($redirectURL) {
 										$this->redirectQueue[$orig] = $redirectURL;
 									}

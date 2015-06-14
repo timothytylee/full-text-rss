@@ -2,6 +2,24 @@ FiveFilters.org: Full-Text RSS
 http://fivefilters.org/content-only/
 CHANGELOG
 ------------------------------------
+3.4 (2014-09-08)
+ - New request parameter: siteconfig lets you submit extraction rules directly in request
+ - New request paramter: accept=(auto|feed|html) determines what we'll accept as a response (deprecates html=1 parameter)
+ - New request parameter: key_redirect=0 to prevent HTTP redirect to hide API key 
+ - Site config files can now contain native_ad_clue: [xpath] to check for elements which signify that the article is a native ad
+ - New config option: remove_native_ads - set to true and when we notice native ads (see above) we'll remove them from the output (only when processing feeds, doesn't affect output when input URL points to an HTML page).
+ - Feed output will include <dc:type>Native Ad</dc:type> for articles which appear to be native ads.
+ - New config option: user_submitted_config to determine whether siteconfig parameter is enabled or not
+ - Feed output now includes <atom:link rel="self"...> with URL of the generated feed
+ - Feed output now includes <atom:link rel="alternate"...> with URL of the original (input) URL
+ - Feed output now includes <atom:link rel="related"...> with URL to subscribe to the generated feed (using subtome.com)
+ - Feed preview stylesheet (feed.xsl) now presents a subscribe to feed link
+ - Fixed character encoding issue for certain texts
+ - Fixed character encoding issue for certain characters in HTML5 parsing mode
+ - Use base element, if present in HTML, when rewriting URLs
+ - HTML5-PHP library updated
+ - Other minor fixes/improvements
+
 3.3 (2014-05-13)
  - Content extractor now looks for Schema.org articleBody elements
  - New endpoint extract.php for developers looking for simpler JSON results (no RSS as input/output)

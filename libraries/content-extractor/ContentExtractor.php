@@ -33,7 +33,9 @@ class ContentExtractor
 				 );
 	protected $html;
 	protected $config;
+	protected $userSubmittedConfig;
 	protected $title;
+	protected $nativeAd = false;
 	protected $author = array();
 	protected $language;
 	protected $date;
@@ -65,10 +67,12 @@ class ContentExtractor
 	}
 	
 	public function reset() {
+		// we do not reset $this->userSubmittedConfig (it gets reused)
 		$this->html = null;
 		$this->readability = null;
 		$this->config = null;
 		$this->title = null;
+		$this->nativeAd = false;
 		$this->body = null;
 		$this->author = array();
 		$this->language = null;
@@ -156,7 +160,17 @@ class ContentExtractor
 	// but it has problems of its own which we try to avoid with this option.
 	public function process($html, $url, $smart_tidy=true) {
 		$this->reset();
-		$this->config = $this->buildSiteConfig($url, $html);
+		// use user submitted config and merge it with regular one
+		if (isset($this->userSubmittedConfig)) {
+			$this->debug('Using user-submitted site config');
+			$this->config = $this->userSubmittedConfig;
+			if ($this->config->autodetect_on_failure()) {
+				$this->debug('Merging user-submitted site config with site config files associated with this URL and/or content');
+				$this->config->append($this->buildSiteConfig($url, $html));
+			}
+		} else {
+			$this->config = $this->buildSiteConfig($url, $html);
+		}
 		
 		// do string replacements
 		if (!empty($this->config->find_string)) {
@@ -225,6 +239,15 @@ class ContentExtractor
 			}
 		}
 		
+		// check if this is a native ad
+		foreach ($this->config->native_ad_clue as $pattern) {
+			$elems = @$xpath->evaluate($pattern, $this->readability->dom);
+			if ($elems instanceof DOMNodeList && $elems->length > 0) {
+				$this->nativeAd = true;
+				break;
+			}
+		}
+
 		// try to get title
 		foreach ($this->config->title as $pattern) {
 			// $this->debug("Trying $pattern");
@@ -758,8 +781,16 @@ class ContentExtractor
 		return false;
 	}
 
+	public function setUserSubmittedConfig($config_string) {
+		$this->userSubmittedConfig = SiteConfig::build_from_string($config_string);
+	}
+
 	public function getContent() {
 		return $this->body;
+	}
+
+	public function isNativeAd() {
+		return $this->nativeAd;
 	}
 	
 	public function getTitle() {

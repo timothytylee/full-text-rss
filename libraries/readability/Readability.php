@@ -113,19 +113,22 @@ class Readability
 	function __construct($html, $url=null, $parser='libxml')
 	{
 		$this->url = $url;
-		/* Turn all double br's into p's */
+		/* Turn all double <br>s into <p>s */
 		$html = preg_replace($this->regexps['replaceBrs'], '</p><p>', $html);
 		$html = preg_replace($this->regexps['replaceFonts'], '<$1span>', $html);
-		$html = mb_convert_encoding($html, 'HTML-ENTITIES', "UTF-8");
 		if (trim($html) == '') $html = '<html></html>';
 		if ($parser=='html5lib' || $parser=='html5php') {
 			if (version_compare(PHP_VERSION, '5.3.0') >= 0) {
-				$this->dom = HTML5::loadHTML($html);
+				//use Masterminds\HTML5;
+				$html5class = 'Masterminds\HTML5';
+				$html5 = new $html5class();				
+				$this->dom = $html5->loadHTML($html);
 			}
 		}
 		if ($this->dom === null) {
 			$this->dom = new DOMDocument();
 			$this->dom->preserveWhiteSpace = false;
+			$html = mb_convert_encoding($html, 'HTML-ENTITIES', "UTF-8");
 			@$this->dom->loadHTML($html);
 		}
 		$this->dom->registerNodeClass('DOMElement', 'JSLikeHTMLElement');

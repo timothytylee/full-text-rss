@@ -315,6 +315,12 @@ if (!defined('_FF_FTR_INDEX')) {
 			<td><tt>html5php</tt>, <tt>libxml</tt></td>
 			<td>The default parser is libxml as it's the fastest. HTML5-PHP is an HTML5 parser implemented in PHP. It's slower than libxml, but can often produce better results. You can request HTML5-PHP be used as the parser in a site-specific config file (to ensure it gets used for all URLs for that site), or explicitly via this request parameter.</td>
 		</tr>
+
+		<tr>
+			<td>siteconfig</td>
+			<td>string</td>
+			<td>Site-specific extraction rules are usually stored in text files in the site_config folder. You can also submit <a href="http://help.fivefilters.org/customer/portal/articles/223153-site-patterns">extraction rules</a> directly in your request using this parameter.</td>
+		</tr>
 		
 		<tr>
 			<td>proxy</td>
@@ -361,43 +367,43 @@ if (!defined('_FF_FTR_INDEX')) {
 			<td>string (URL)</td>
 			<td>This is the only required parameter. It should be the URL to a partial feed or a standard HTML page. You can omit the 'http://' prefix if you like.</td>
 		</tr>
-		
+
 		<tr>
 			<td>format</td>
 			<td><tt>rss</tt> (default), <tt>json</tt></td>
 			<td>The default Full-Text RSS output is RSS. The only other valid output format is JSON. To get JSON output, pass format=json in the querystring. Exclude it from the URL (or set it to ‘rss’) if you’d like RSS.</td>
 		</tr>	
-		
+
 		<tr>
 			<td>summary</td>
 			<td><tt>0</tt> (default), <tt>1</tt></td>
 			<td>If set to 1, an excerpt will be included for each item in the output.</td>
 		</tr>			
-		
+
 		<tr>
 			<td>content</td>
 			<td><tt>0</tt>, <tt>1</tt> (default)</td>
 			<td>If set to 0, the extracted content will not be included in the output.</td>
-		</tr>			
-		
+		</tr>
+
 		<tr>
 			<td>links</td>
 			<td><tt>preserve</tt> (default), <tt>footnotes</tt>, <tt>remove</tt></td>
 			<td>Links can either be preserved, made into footnotes, or removed. None of these options affect the link text, only the hyperlink itself.</td>
-		</tr>			
+		</tr>
 		
 		<tr>
 			<td>exc</td>
 			<td><tt>0</tt> (default), <tt>1</tt></td>
 			<td>If Full-Text RSS fails to extract the article body, the generated feed item will include a message saying extraction failed followed by the original item description (if present in the original feed). You ask Full-Text RSS to remove such items from the generated feed completely by passing 1 in this parameter.</td>
-		</tr>			
+		</tr>
 		
 		<tr>
-			<td>html</td>
-			<td><tt>0</tt> (default), <tt>1</tt></td>
-			<td><p>Treat input source as HTML (or parse-as-html-first mode). To enable, pass html=1 in the querystring. If enabled, Full-Text RSS will not attempt to parse the response as a feed. This increases performance slightly and should be used if you know that the URL is not a feed.</p>
+			<td>accept</td>
+			<td><tt>auto</tt> (default), <tt>feed</tt>, <tt>html</tt></td>
+			<td><p>Tell Full-Text RSS what it should expect when fetching the input URL. By default Full-Text RSS tries to guess whether the response is a feed or regular HTML page. It's a good idea to be explicit by passing the appropriate type in this parameter. This is useful if, for example, a feed stops working and begins to return HTML or redirecs to a HTML page as a result of site changes. In such a scenario, if you've been explicit about the URL being a feed, Full-Text RSS will not parse HTML returned in response. If you pass accept=html (previously html=1), Full-Text RSS will not attempt to parse the response as a feed. This increases performance slightly and should be used if you know that the URL is not a feed.</p>
 
-<p>Note: If excluded, or set to 0, Full-Text RSS first tries to parse the server's response as a feed, and only if it fails to parse as a feed will it revert to HTML parsing. In the default parse-as-feed-first mode, Full-Text RSS will identify itself as PHP first and only if a valid feed is returned will it identify itself as a browser in subsequent requests to fetch the feed items. In parse-as-html-first mode, Full-Text RSS will identify itself as a browser from the very first request.</p></td>
+			<p>Note: If excluded, or set to <tt>auto</tt>, Full-Text RSS first tries to parse the server's response as a feed, and only if it fails to parse as a feed will it revert to HTML parsing. In the default parse-as-feed-first mode, Full-Text RSS will identify itself as PHP first and only if a valid feed is returned will it identify itself as a browser in subsequent requests to fetch the feed items. In parse-as-html mode, Full-Text RSS will identify itself as a browser from the very first request.</p></td>
 		</tr>
 		
 		<tr>
@@ -405,9 +411,9 @@ if (!defined('_FF_FTR_INDEX')) {
 			<td><tt>0</tt> (default), <tt>1</tt></td>
 			<td><p>Use this to enable XSS filtering. We have not enabled this by default because we assume the majority of our users do not display the HTML retrieved by Full-Text RSS in a web page without further processing. If you subscribe to our generated feeds in your news reader application, it should, if it's good software, already filter the resulting HTML for XSS attacks, making it redundant for Full-Text RSS do the same. Similarly with frameworks/CMSs which display feed content - the content should be treated like any other user-submitted content.</p>
 
-<p>If you are writing an application yourself which is processing feeds generated by Full-Text RSS, you can either filter the HTML yourself to remove potential XSS attacks or enable this option. This might be useful if you are processing our generated feeds with JavaScript on the client side - although there's client side xss filtering available too.</p>
+			<p>If you are writing an application yourself which is processing feeds generated by Full-Text RSS, you can either filter the HTML yourself to remove potential XSS attacks or enable this option. This might be useful if you are processing our generated feeds with JavaScript on the client side - although there's client side xss filtering available too.</p>
 
-<p>If enabled, we'll pass retrieved HTML content through htmLawed (safe flag on and style attributes denied). Note: if enabled this will also remove certain elements you may want to preserve, such as iframes.</p></td>
+			<p>If enabled, we'll pass retrieved HTML content through htmLawed (safe flag on and style attributes denied). Note: if enabled this will also remove certain elements you may want to preserve, such as iframes.</p></td>
 		</tr>
 		
 		<tr>
@@ -443,6 +449,12 @@ if (!defined('_FF_FTR_INDEX')) {
 			<td>parser</td>
 			<td><tt>html5php</tt>, <tt>libxml</tt></td>
 			<td>The default parser is libxml as it's the fastest. HTML5-PHP is an HTML5 parser implemented in PHP. It's slower than libxml, but can often produce better results. You can request HTML5-PHP be used as the parser in a site-specific config file (to ensure it gets used for all URLs for that site), or explicitly via this request parameter.</td>
+		</tr>
+
+		<tr>
+			<td>siteconfig</td>
+			<td>string</td>
+			<td>Site-specific extraction rules are usually stored in text files in the site_config folder. You can also submit <a href="http://help.fivefilters.org/customer/portal/articles/223153-site-patterns">extraction rules</a> directly in your request using this parameter.</td>
 		</tr>
 		
 		<tr>
@@ -501,19 +513,24 @@ if (!defined('_FF_FTR_INDEX')) {
 		</tr>
 		</thead>
 		<tbody>
-	    <tr>
-        <td>key</td>
-        <td>string or number</td>
-        <td><p>This parameter has two functions.</p><p>If you're calling Full-Text RSS programattically, it's better to use this parameter to provide the API key index number together with the hash parameter (see below) so that the actual API key does not get sent in the HTTP request.</p><p>If you pass the actual API key in this parameter, the hash parameter is not required. If you pass the actual API key to makefulltextfeed.php, Full-Text RSS will find the index number and generate the hash value automatically and redirect to a new URL to hide the API key. If you'd like to link to a generated feed publically while protecting your API key, make sure you copy and paste the URL that results after the redirect.</p><p>If you've configured Full-Text RSS to require a key, an invalid key will result in an error message.</p></td>
-    </tr>
-    
- 	    <tr>
-        <td>hash</td>
-        <td>string</td>
-        <td>A SHA-1 hash value of the API key (actual key, not index number) and the URL supplied in the <tt>url</tt> parameter, concatenated. This parameter must be passed along with the API key's index number using the <tt>key</tt> parameter (see above). In PHP, for example: <tt>$hash = sha1($api_key.$url);</tt></td>
-    </tr>
-    
-    </tbody>
+			<tr>
+			<td>key</td>
+			<td>string or number</td>
+			<td><p>This parameter has two functions.</p><p>If you're calling Full-Text RSS programattically, it's better to use this parameter to provide the API key index number together with the hash parameter (see below) so that the actual API key does not get sent in the HTTP request.</p><p>If you pass the actual API key in this parameter, the hash parameter is not required. If you pass the actual API key, Full-Text RSS will find the index number and generate the hash value automatically and redirect to a new URL to hide the API key. If you'd like to link to a generated feed publically while protecting your API key, make sure you copy and paste the URL that results after the redirect.</p><p>If you've configured Full-Text RSS to require a key, an invalid key will result in an error message.</p></td>
+			</tr>
+	    
+			<tr>
+			<td>hash</td>
+			<td>string</td>
+			<td>A SHA-1 hash value of the API key (actual key, not index number) and the URL supplied in the <tt>url</tt> parameter, concatenated. This parameter must be passed along with the API key's index number using the <tt>key</tt> parameter (see above). In PHP, for example: <tt>$hash = sha1($api_key.$url);</tt></td>
+			</tr>
+
+			<tr>
+			<td>key_redirect</td>
+			<td>0 or 1 (default)</td>
+			<td><p>When supplying the API key with the <tt>key</tt> parameter, Full-Text RSS will generate a new URL and issue a HTTP redirect to the new URL to hide the API key (see description above). If you'd like to avoid an HTTP redirect, you can pass 0 in this parameter. We do not recommend you subscribe to feeds generated in this way.</p></td>
+			</tr>
+		</tbody>
 	</table>
 
 	

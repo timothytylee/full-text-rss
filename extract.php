@@ -45,7 +45,7 @@ HTTP/1.0 200 OK
 define('_FF_FTR_MODE', 'simple');
 
 // Don't process URL as feed
-$_POST['html'] = '1';
+$_POST['accept'] = 'html';
 // JSON output only
 $_POST['format'] = 'json';
 // Enable excerpts

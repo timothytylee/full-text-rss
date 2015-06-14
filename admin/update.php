@@ -3,7 +3,7 @@
 // Author: Keyvan Minoukadeh
 // Copyright (c) 2014 Keyvan Minoukadeh
 // License: AGPLv3
-// Date: 2013-05-02
+// Date: 2014-08-19
 // More info: http://fivefilters.org/content-only/
 // Help: http://help.fivefilters.org
 
@@ -36,6 +36,8 @@ ini_set("display_errors", 1);
 ////////////////////////////////
 $admin_page = 'update';
 require_once('../config.php');
+require_once('../libraries/humble-http-agent/HumbleHttpAgent.php');
+require_once('../libraries/humble-http-agent/CookieJar.php');
 require_once 'template.php';
 tpl_header('Update site patterns');
 
@@ -129,18 +131,21 @@ if ($_REQUEST['key'] !== $admin_hash) {
 // Check for updates
 //////////////////////////////////
 //$ff_version = @file_get_contents('http://fivefilters.org/content-only/site_config/standard/version.txt');
-$_context = stream_context_create(array('http' => array('user_agent' => 'PHP/5.4')));
-$latest_info_json = @file_get_contents('https://api.github.com/repos/fivefilters/ftr-site-config', false, $_context);
+$http = new HumbleHttpAgent();
+$latest_info_json = $http->get('https://api.github.com/repos/fivefilters/ftr-site-config');
+//$_context = stream_context_create(array('http' => array('user_agent' => 'PHP/5.5'), 'ssl'=>array('verify_peer'=>false)));
+//$latest_info_json = file_get_contents('https://api.github.com/repos/fivefilters/ftr-site-config', false, $_context);
 if (!$latest_info_json) {
 	println("Sorry, couldn't get info on latest site config files. Please try again later or contact us.");
 	exit;
 }
+$latest_info_json = $latest_info_json['body'];
 $latest_info_json = @json_decode($latest_info_json);
 if (!is_object($latest_info_json)) {
 	println("Sorry, couldn't parse JSON from GitHub. Please try again later or contact us.");
 	exit;
 }
-$ff_version = $latest_info_json->updated_at;
+$ff_version = $latest_info_json->pushed_at;
 if ($version == $ff_version) {
 	die('Your site config files are up to date! If you have trouble extracting from a particular site, please email us: help@fivefilters.org');
 } else {
@@ -166,8 +171,15 @@ if (file_exists($tmp_old_local_dir)) {
 $standard_local_dir = '../site_config/standard/';
 //@copy($latest_remote, $tmp_latest_local);
 //copy() does not appear to fill $http_response_header in certain environments
-@file_put_contents($tmp_latest_local, @file_get_contents($latest_remote));
-$headers = implode("\n", $http_response_header);
+//@file_put_contents($tmp_latest_local, @file_get_contents($latest_remote, false, $_context));
+$latest_remote_response = $http->get($latest_remote);
+if (!is_array($latest_remote_response)) {
+	println("Sorry, something went wrong. Please contact us if the problem persists.");
+	exit;
+}
+@file_put_contents($tmp_latest_local, $latest_remote_response['body']);
+//$headers = implode("\n", $http_response_header);
+$headers = $latest_remote_response['headers'];
 //var_dump($headers); exit;
 if ((strpos($headers, 'HTTP/1.0 200') === false) && (strpos($headers, 'HTTP/1.1 200') === false)) {
 	println("Sorry, something went wrong. Please contact us if the problem persists.");

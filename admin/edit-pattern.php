@@ -60,6 +60,7 @@ tpl_header('Edit site patterns');
 $version = file_get_contents('../site_config/standard/version.txt');
 
 function filter_only_text($filename) {
+	if ($filename === 'version.txt') return false;
 	return (strtolower(substr($filename, -4)) == '.txt');
 }
 function is_valid_hostname($host) {

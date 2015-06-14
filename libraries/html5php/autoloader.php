@@ -23,10 +23,11 @@ class HTML5PHP_Autoloader
 	public function autoload($class)
 	{
 		// Only load the class if it starts with "HTML5"
-		if (strpos($class, 'HTML5') !== 0)
+		if (strpos($class, 'Masterminds\HTML5') !== 0)
 		{
 			return;
 		}
+		$class = substr($class, 12);
 		//die($class);
 
 		$filename = $this->path . DIRECTORY_SEPARATOR . str_replace('\\', DIRECTORY_SEPARATOR, $class) . '.php';

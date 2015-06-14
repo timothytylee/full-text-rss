@@ -187,11 +187,28 @@ $options->keep_enclosures = true;
 // Values will be placed inside the <dc:language> element inside each <item> element
 // Possible values:
 // * Ignore language: 0
-// * Use article/feed metadata (e.g. HTML lang attribute): 1 (default)
+// * Use article/feed metadata (e.g. HTML lang attribute): 1
 // * As above, but guess if not present: 2
 // * Always guess: 3
-// * User decides: 'user' (value of 0-3 can be passed in querystring: e.g. &lang=2)
-$options->detect_language = 1;
+// * User decides: 'user' (value of 0-3 can be passed in querystring: e.g. &lang=2, &lang=1 will be default if nothing supplied)
+$options->detect_language = 'user';
+
+// Allow user-submitted site config in request
+// ---------------
+// If enabled, a user can submit site config rules directly in the request
+// using the siteconfig request parameter. Disabled (false) by default.
+$options->user_submitted_config = false;
+
+// Remove items identified as native ads?
+// ---------------
+// Many news sites now carry native advertising - articles which have been
+// paid for by a corporation to promote their brand or product.
+// Full-Text RSS can identify such articles in certain sites. If an article
+// is identified as being a native ad, we'll add a <dc:type>Native Ad</dc:type>
+// element to the item. But you can also request that such ads be removed from
+// the output altogether. To do so, set the option below to true.
+// Note: this only has effect when the input URL is a feed, not a web page.
+$options->remove_native_ads = false;
 
 /////////////////////////////////////////////////
 /// RESTRICT ACCESS /////////////////////////////
@@ -213,6 +230,7 @@ $options->admin_credentials = array('username'=>'admin', 'password'=>'');
 // List of URLs (or parts of a URL) which the service will accept.
 // If the list is empty, all URLs (except those specified in the blocked list below)
 // will be permitted.
+// Note: for feeds, this option applies to both feed URLs and item URLs within those feeds.
 // Empty: array();
 // Non-empty example: array('example.com', 'anothersite.org');
 $options->allowed_urls = array();
@@ -220,7 +238,8 @@ $options->allowed_urls = array();
 // URLs to block
 // ----------------------
 // List of URLs (or parts of a URL) which the service will not accept.
-// Note: this list is ignored if allowed_urls is not empty
+// Note: this list is ignored if allowed_urls is not empty.
+// Note: for feeds, this option applies to both feed URLs and item URLs within those feeds.
 $options->blocked_urls = array();
 
 // Key holder(s) only?
@@ -230,22 +249,6 @@ $options->blocked_urls = array();
 // If set to true, no feed is produced unless a valid
 // key is provided.
 $options->key_required = false;
-
-// Favour item titles in feed
-// ----------------------
-// By default, when processing feeds, we assume item titles in the feed
-// have not been truncated. So after processing web pages, the extracted titles
-// are not used in the generated feed. If you prefer to have extracted titles in 
-// the feed you can either set this to false, in which case we will always favour 
-// extracted titles. Alternatively, if set to 'user' (default) we'll use the 
-// extracted title if you pass '&use_extracted_title' in the querystring.
-// Possible values:
-// * Favour feed titles: true 
-// * Favour extracted titles: false
-// * Favour feed titles with user override: 'user' (default)
-// Note: this has no effect when the input URL is to a web page - in these cases
-// we always use the extracted title in the generated feed.
-$options->favour_feed_titles = 'user';
 
 // Access keys (password protected access)
 // ------------------------------------
@@ -306,6 +309,22 @@ $options->max_entries_with_key = 10;
 // 'user' (default) - user must pass &xss=1 in makefulltextfeed.php querystring to enable
 // false - disabled
 $options->xss_filter = 'user';
+
+// Favour item titles in feed
+// ----------------------
+// By default, when processing feeds, we assume item titles in the feed
+// have not been truncated. So after processing web pages, the extracted titles
+// are not used in the generated feed. If you prefer to have extracted titles in 
+// the feed you can either set this to false, in which case we will always favour 
+// extracted titles. Alternatively, if set to 'user' (default) we'll use the 
+// extracted title if you pass '&use_extracted_title' in the querystring.
+// Possible values:
+// * Favour feed titles: true 
+// * Favour extracted titles: false
+// * Favour feed titles with user override: 'user' (default)
+// Note: this has no effect when the input URL is to a web page - in these cases
+// we always use the extracted title in the generated feed.
+$options->favour_feed_titles = 'user';
 
 // Allowed HTML parsers
 // ----------------------
@@ -481,7 +500,7 @@ $options->cache_cleanup = 100;
 /// DO NOT CHANGE ANYTHING BELOW THIS ///////////
 /////////////////////////////////////////////////
 
-if (!defined('_FF_FTR_VERSION')) define('_FF_FTR_VERSION', '3.3');
+if (!defined('_FF_FTR_VERSION')) define('_FF_FTR_VERSION', '3.4');
 
 if (basename(__FILE__) == 'config.php') {
 	if (file_exists(dirname(__FILE__).'/custom_config.php')) {

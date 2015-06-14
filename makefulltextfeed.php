@@ -3,8 +3,8 @@
 // Author: Keyvan Minoukadeh
 // Copyright (c) 2014 Keyvan Minoukadeh
 // License: AGPLv3
-// Version: 3.3
-// Date: 2014-05-07
+// Version: 3.4
+// Date: 2014-08-28
 // More info: http://fivefilters.org/content-only/
 // Help: http://help.fivefilters.org
 
@@ -29,6 +29,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // For more request parameters, see http://help.fivefilters.org/customer/portal/articles/226660-usage
 
 error_reporting(E_ALL ^ E_NOTICE);
+libxml_use_internal_errors(true);
 ini_set("display_errors", 1);
 @set_time_limit(120);
 
@@ -82,9 +83,11 @@ function autoload($class_name) {
 		// Language detect
 		'Text_LanguageDetect' => 'language-detect/LanguageDetect.php',
 		// HTML5 PHP (can't be used unless PHP version is >= 5.3)
-		'HTML5' => 'html5php/HTML5.php',		
+		'Masterminds\HTML5' => 'html5php/HTML5.php',		
 		// htmLawed - used if XSS filter is enabled (xss_filter)
-		'htmLawed' => 'htmLawed/htmLawed.php'
+		'htmLawed' => 'htmLawed/htmLawed.php',
+		// Disable SimplePie sanitization
+		'DisableSimplePieSanitize' => 'DisableSimplePieSanitize.php'
 	);
 	if (isset($mapping[$class_name])) {
 		debug("** Loading class $class_name ({$mapping[$class_name]})");
@@ -180,19 +183,9 @@ if (strtolower(substr($url, 0, 7)) == 'feed://') {
 if (!preg_match('!^https?://.+!i', $url)) {
 	$url = 'http://'.$url;
 }
+$url = validate_url($url);
+if (!$url) die('Invalid URL supplied');
 
-$url = filter_var($url, FILTER_SANITIZE_URL);
-$test = filter_var($url, FILTER_VALIDATE_URL, FILTER_FLAG_SCHEME_REQUIRED);
-// deal with bug http://bugs.php.net/51192 (present in PHP 5.2.13 and PHP 5.3.2)
-if ($test === false) {
-	$test = filter_var(strtr($url, '-', '_'), FILTER_VALIDATE_URL, FILTER_FLAG_SCHEME_REQUIRED);
-}
-if ($test !== false && $test !== null && preg_match('!^https?://!', $url)) {
-	// all okay
-	unset($test);
-} else {
-	die('Invalid URL supplied');
-}
 debug("Supplied URL: $url");
 
 /////////////////////////////////
@@ -200,34 +193,19 @@ debug("Supplied URL: $url");
 // (if in 'full' mode)
 /////////////////////////////////
 if ((_FF_FTR_MODE == 'full') && isset($_REQUEST['key']) && ($key_index = array_search($_REQUEST['key'], $options->api_keys)) !== false) {
-	$host = $_SERVER['HTTP_HOST'];
-	$path = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
-	$_qs_url = (strtolower(substr($url, 0, 7)) == 'http://') ? substr($url, 7) : $url;
-	$redirect = 'http://'.htmlspecialchars($host.$path).'/makefulltextfeed.php?url='.urlencode($_qs_url);
-	$redirect .= '&key='.$key_index;
-	$redirect .= '&hash='.urlencode(sha1($_REQUEST['key'].$url));
-	if (isset($_REQUEST['html'])) $redirect .= '&html='.urlencode($_REQUEST['html']);
-	if (isset($_REQUEST['max'])) $redirect .= '&max='.(int)$_REQUEST['max'];
-	if (isset($_REQUEST['links'])) $redirect .= '&links='.urlencode($_REQUEST['links']);
-	if (isset($_REQUEST['exc'])) $redirect .= '&exc='.urlencode($_REQUEST['exc']);
-	if (isset($_REQUEST['format'])) $redirect .= '&format='.urlencode($_REQUEST['format']);
-	if (isset($_REQUEST['callback'])) $redirect .= '&callback='.urlencode($_REQUEST['callback']);	
-	if (isset($_REQUEST['l'])) $redirect .= '&l='.urlencode($_REQUEST['l']);
-	if (isset($_REQUEST['lang'])) $redirect .= '&lang='.urlencode($_REQUEST['lang']);
-	if (isset($_REQUEST['xss'])) $redirect .= '&xss';
-	if (isset($_REQUEST['use_extracted_title'])) $redirect .= '&use_extracted_title';
-	if (isset($_REQUEST['content'])) $redirect .= '&content='.urlencode($_REQUEST['content']);
-	if (isset($_REQUEST['summary'])) $redirect .= '&summary='.urlencode($_REQUEST['summary']);
-	if (isset($_REQUEST['debug'])) $redirect .= '&debug';
-	if (isset($_REQUEST['parser'])) $redirect .= '&parser='.urlencode($_REQUEST['parser']);
-	if (isset($_REQUEST['proxy'])) $redirect .= '&proxy='.urlencode($_REQUEST['proxy']);
-	if ($debug_mode) {
-		debug('Redirecting to hide access key, follow URL below to continue');
-		debug("Location: $redirect");
+	if (isset($_REQUEST['key_redirect']) && $_REQUEST['key_redirect'] === '0') {
+		$_REQUEST['hash'] = sha1($_REQUEST['key'].$url);
+		$_REQUEST['key'] = $key_index;
 	} else {
-		header("Location: $redirect");
+		$redirect = get_self_url();
+		if ($debug_mode) {
+			debug('Redirecting to hide access key, follow URL below to continue');
+			debug("Location: $redirect");
+		} else {
+			header("Location: $redirect");
+		}
+		exit;
 	}
-	exit;
 }
 
 ///////////////////////////////////////////////
@@ -241,9 +219,25 @@ if (!ini_get('date.timezone') || !@date_default_timezone_set(ini_get('date.timez
 }
 
 ///////////////////////////////////////////////
-// Check if the request is explicitly for an HTML page
+// Should we treat input URL as feed or HTML? 
 ///////////////////////////////////////////////
-$html_only = (isset($_REQUEST['html']) && ($_REQUEST['html'] == '1' || $_REQUEST['html'] == 'true'));
+$accept = 'auto';
+if (isset($_REQUEST['accept']) && in_array(strtolower($_REQUEST['accept']), array('html', 'feed', 'auto'))) {
+	$accept = strtolower($_REQUEST['accept']);
+} elseif (isset($_REQUEST['html']) && ($_REQUEST['html'] == '1' || $_REQUEST['html'] == 'true')) {
+	$accept = 'html';
+}
+
+///////////////////////////////////////////////
+// User-submitted site config 
+///////////////////////////////////////////////
+$user_submitted_config = null;
+if (isset($_REQUEST['siteconfig'])) {
+	$user_submitted_config = $_REQUEST['siteconfig'];
+	if (!$options->user_submitted_content && $user_submitted_config) {
+		die('User-submitted site configs are currently disabled. Please remove the siteconfig parameter.');
+	}
+}
 
 ///////////////////////////////////////////////
 // Check if valid key supplied
@@ -463,8 +457,8 @@ if (isset($_REQUEST['inputhtml']) && _FF_FTR_MODE == 'simple') {
 //////////////////////////////////
 if ($options->caching) {
 	debug('Caching is enabled...');
-	$cache_id = md5($max.$url.(int)$valid_key.$links.(int)$favour_feed_titles.(int)$options->content.(int)$options->summary.
-					(int)$xss_filter.(int)$exclude_on_fail.$format.$detect_language.$parser._FF_FTR_MODE);
+	$cache_id = md5($max.$url.(int)$valid_key.$accept.$links.(int)$favour_feed_titles.(int)$options->content.(int)$options->summary.
+					(int)$xss_filter.(int)$exclude_on_fail.$format.$detect_language.$parser.$user_submitted_config._FF_FTR_MODE);
 	$check_cache = true;
 	if ($options->apc && $options->smart_cache) {
 		apc_add("cache.$cache_id", 0, $options->cache_time*60);
@@ -548,11 +542,14 @@ SiteConfig::use_apc($options->apc);
 $extractor->fingerprints = $options->fingerprints;
 $extractor->allowedParsers = $options->allowed_parsers;
 $extractor->parserOverride = $parser;
+if ($options->user_submitted_config && $user_submitted_config) {
+	$extractor->setUserSubmittedConfig($user_submitted_config);
+}
 
 ////////////////////////////////
 // Get RSS/Atom feed
 ////////////////////////////////
-if (!$html_only) {
+if ($accept !== 'html') {
 	debug('--------');
 	debug("Attempting to process URL as feed");
 	// Send user agent header showing PHP (prevents a HTML response from feedburner)
@@ -563,6 +560,9 @@ if (!$html_only) {
 	// some feeds use the text/html content type - force_feed tells SimplePie to process anyway
 	$feed->force_feed(true);
 	$feed->set_file_class('SimplePie_HumbleHttpAgent');
+	$feed->set_sanitize_class('DisableSimplePieSanitize');
+	// need to assign this manually it seems
+	$feed->sanitize = new DisableSimplePieSanitize();
 	//$feed->set_feed_url($url); // colons appearing in the URL's path get encoded
 	$feed->feed_url = $url;
 	$feed->set_autodiscovery_level(SIMPLEPIE_LOCATOR_NONE);
@@ -578,6 +578,8 @@ if (!$html_only) {
 	//$feed->get_title();
 	if ($result && (!is_array($feed->data) || count($feed->data) == 0)) {
 		die('Sorry, no feed items found');
+	} elseif (!$result && $accept === 'feed') {
+		die('Sorry, couldn\'t parse as feed');
 	}
 	// from now on, we'll identify ourselves as a browser
 	$http->userAgentDefault = HumbleHttpAgent::UA_BROWSER;
@@ -589,7 +591,7 @@ if (!$html_only) {
 // single-item feeds.
 ////////////////////////////////////////////////////////////////////////////////
 $isDummyFeed = false;
-if ($html_only || !$result) {
+if ($accept === 'html' || !$result) {
 	debug('--------');
 	debug("Constructing a single-item feed from URL");
 	$isDummyFeed = true;
@@ -627,6 +629,8 @@ if ($html_only || !$result) {
 ////////////////////////////////////////////
 $output = new FeedWriter();
 if (_FF_FTR_MODE === 'simple') $output->enableSimpleJson();
+//$feed_title = $feed->get_title();
+//echo $feed_title; exit;
 $output->setTitle(strip_tags($feed->get_title()));
 $output->setDescription(strip_tags($feed->get_description()));
 $output->setXsl('css/feed.xsl'); // Chrome uses this, most browsers ignore it
@@ -635,7 +639,9 @@ if ($ttl !== null) {
 	$ttl = (int)$ttl[0]['data'];
 	$output->setTtl($ttl);
 }
-//$output->setSelf('http://'.$_SERVER['HTTP_HOST'].$_SERVER['REQUEST_URI']);
+$output->setSelf(get_self_url());
+$output->setAlternate($url, 'Source URL');
+$output->setRelated('http://www.subtome.com/#/subscribe?feeds='.urlencode(get_self_url()).'&back='.urlencode(get_self_url()), 'Subscribe to feed');
 $output->setLink($feed->get_link()); // Google Reader uses this for pulling in favicons
 if ($img_url = $feed->get_image_url()) {
 	$output->setImage($feed->get_title(), $feed->get_link(), $img_url);
@@ -656,7 +662,12 @@ foreach ($items as $key => $item) {
 	// simplepie already sanitizes URLs so let's not do it again here.
 	//$permalink = $http->validateUrl($permalink);
 	if ($permalink) {
-		$urls_sanitized[] = $permalink;
+		if (!url_allowed($permalink)) {
+			debug('URL blocked, skipping...');
+			$permalink = false;
+		} else {
+			$urls_sanitized[] = $permalink;
+		}
 	}
 	$urls[$key] = $permalink;
 }
@@ -669,6 +680,7 @@ $http->fetchAll($urls_sanitized);
 $item_count = 0;
 
 foreach ($items as $key => $item) {
+	libxml_clear_errors();
 	debug('--------');
 	debug('Processing feed item '.($item_count+1));
 	$do_content_extraction = true;
@@ -697,7 +709,10 @@ foreach ($items as $key => $item) {
 	// errors being treated as valid responses.
 	if ($permalink && ($response = $http->get($permalink, true)) && ($response['status_code'] < 300)) {
 		$effective_url = $response['effective_url'];
-		if (!url_allowed($effective_url)) continue;
+		if (!url_allowed($effective_url)) {
+			debug('URL blocked, skipping...');
+			continue;
+		}
 		// check if action defined for returned Content-Type
 		$mime_info = get_mime_action_info($response['headers']);
 		if (isset($mime_info['action'])) {
@@ -727,7 +742,7 @@ foreach ($items as $key => $item) {
 			}
 			// check site config for single page URL - fetch it if found
 			$is_single_page = false;
-			if ($options->singlepage && ($single_page_response = getSinglePage($item, $html, $effective_url))) {
+			if ($options->singlepage && ($single_page_response = get_single_page($item, $html, $effective_url))) {
 				$is_single_page = true;
 				$effective_url = $single_page_response['effective_url'];
 				// check if action defined for returned Content-Type
@@ -765,6 +780,13 @@ foreach ($items as $key => $item) {
 				debug("Here's the full HTML after it's been parsed by Full-Text RSS:");
 				die($readability->dom->saveXML($readability->dom->documentElement));
 			}
+			// is this a native ad?
+			if ($extract_result && $extractor->isNativeAd()) {
+				debug("This article appears to be a native ad");
+				if (!$isDummyFeed && $options->remove_native_ads) {
+					continue; // skip this feed item entry
+				}
+			}
 			$content_block = ($extract_result) ? $extractor->getContent() : null;			
 			$extracted_title = ($extract_result) ? $extractor->getTitle() : '';
 			// Deal with multi-page articles
@@ -779,7 +801,7 @@ foreach ($items as $key => $item) {
 					debug('--------');
 					debug('Processing next page: '.$next_page_url);
 					// If we've got URL, resolve against $url
-					if ($next_page_url = makeAbsoluteStr($effective_url, $next_page_url)) {
+					if ($next_page_url = make_absolute_str($effective_url, $next_page_url)) {
 						// check it's not what we have already!
 						if (!in_array($next_page_url, $multi_page_urls)) {
 							// it's not, so let's attempt to fetch it
@@ -844,7 +866,12 @@ foreach ($items as $key => $item) {
 			$html .= $item->get_description();
 		} else {
 			$readability->clean($content_block, 'select');
-			if ($options->rewrite_relative_urls) makeAbsolute($effective_url, $content_block);
+			if ($options->rewrite_relative_urls) {
+				$base_url = get_base_url($readability->dom);
+				if (!$base_url) $base_url = $effective_url;
+				// rewrite URLs
+				make_absolute($base_url, $content_block);
+			}
 			// footnotes
 			if (($links == 'footnotes') && (strpos($effective_url, 'wikipedia.org') === false)) {
 				$readability->addFootnotes($content_block);
@@ -987,11 +1014,15 @@ foreach ($items as $key => $item) {
 	// add effective URL (URL after redirects)
 	if (isset($effective_url)) {
 		//TODO: ensure $effective_url is valid witout - sometimes it causes problems, e.g.
-		//http://www.siasat.pk/forum/showthread.php?108883-Pakistan-Chowk-by-Rana-Mubashir-�-25th-March-2012-Special-Program-from-Liari-(Karachi)
+		//http://www.siasat.pk/forum/showthread.php?108883-Pakistan-Chowk-by-Rana-Mubashir-–-25th-March-2012-Special-Program-from-Liari-(Karachi)
 		//temporary measure: use utf8_encode()
 		$newitem->addElement('dc:identifier', remove_url_cruft(utf8_encode($effective_url)));
 	} else {
 		$newitem->addElement('dc:identifier', remove_url_cruft($item->get_permalink()));
+	}
+	// is this a native ad?
+	if ($extractor->isNativeAd()) {
+		$newitem->addElement('dc:type', 'Native Ad');
 	}
 	
 	// add categories
@@ -1075,7 +1106,7 @@ if (!$debug_mode) {
 		$output->generateFeed();
 		$output = ob_get_contents();
 		ob_end_clean();
-		if ($html_only && $item_count == 0) {
+		if ($accept === 'html' && $item_count == 0) {
 			// do not cache - in case of temporary server glitch at source URL
 		} else {
 			$cache = get_cache();
@@ -1092,10 +1123,77 @@ if (!$debug_mode) {
 // HELPER FUNCTIONS
 ///////////////////////////////
 
+function get_self_url() {
+	global $options, $url;
+	$scheme = (is_ssl()) ? 'https://' : 'http://';
+	$host = $_SERVER['HTTP_HOST'];
+	$path = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');
+	$_qs_url = (strtolower(substr($url, 0, 7)) == 'http://') ? substr($url, 7) : $url;
+	$self = $scheme.htmlspecialchars($host.$path).'/makefulltextfeed.php?url='.urlencode($_qs_url);
+
+	// hide API key if we can
+	if (isset($_GET['key']) && ($key_index = array_search($_GET['key'], $options->api_keys)) !== false) {
+		$_hash = sha1($_GET['key'].$url);
+		$self .= '&key='.$key_index;
+		$self .= '&hash='.urlencode($_hash);
+	} elseif(isset($_GET['key']) && isset($_GET['hash'])) {
+		$self .= '&key='.urlencode($_GET['key']);
+		$self .= '&hash='.urlencode($_GET['hash']);
+	}
+	
+	if (isset($_GET['html'])) $self .= '&html='.urlencode($_GET['html']);
+	if (isset($_GET['accept'])) $self .= '&accept='.urlencode($_GET['accept']);		
+	if (isset($_GET['max'])) $self .= '&max='.(int)$_GET['max'];
+	if (isset($_GET['links'])) $self .= '&links='.urlencode($_GET['links']);
+	if (isset($_GET['exc'])) $self .= '&exc='.urlencode($_GET['exc']);
+	if (isset($_GET['format'])) $self .= '&format='.urlencode($_GET['format']);
+	if (isset($_GET['callback'])) $self .= '&callback='.urlencode($_GET['callback']);	
+	if (isset($_GET['l'])) $self .= '&l='.urlencode($_GET['l']);
+	if (isset($_GET['lang'])) $self .= '&lang='.urlencode($_GET['lang']);
+	if (isset($_GET['xss'])) $self .= '&xss';
+	if (isset($_GET['use_extracted_title'])) $self .= '&use_extracted_title';
+	if (isset($_GET['content'])) $self .= '&content='.urlencode($_GET['content']);
+	if (isset($_GET['summary'])) $self .= '&summary='.urlencode($_GET['summary']);
+	if (isset($_GET['debug'])) $self .= '&debug';
+	if (isset($_GET['parser'])) $self .= '&parser='.urlencode($_GET['parser']);
+	if (isset($_GET['proxy'])) $self .= '&proxy='.urlencode($_GET['proxy']);
+	if (isset($_GET['siteconfig'])) $self .= '&siteconfig='.urlencode($_GET['siteconfig']);
+	return $self;
+}
+
+function validate_url($url) {
+	$url = filter_var($url, FILTER_SANITIZE_URL);
+	$test = filter_var($url, FILTER_VALIDATE_URL, FILTER_FLAG_SCHEME_REQUIRED);
+	// deal with bug http://bugs.php.net/51192 (present in PHP 5.2.13 and PHP 5.3.2)
+	if ($test === false) {
+		$test = filter_var(strtr($url, '-', '_'), FILTER_VALIDATE_URL, FILTER_FLAG_SCHEME_REQUIRED);
+	}
+	if ($test !== false && $test !== null && preg_match('!^https?://!i', $url)) {
+		return $url;
+	} else {
+		return false;
+	}
+}
+
+function get_base_url($dom) {
+	$xpath = new DOMXPath($dom);
+	return @$xpath->evaluate('string(//head/base/@href)', $dom);
+}
+
+function is_ssl() {
+	if (isset($_SERVER['HTTPS']) && ($_SERVER['HTTPS'] != '') && ($_SERVER['HTTPS'] != 'off')) {
+		return true;
+	} elseif (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https') {
+		return true;
+	} else {
+		return false;
+	}
+}
+
 // Adapted from WordPress
 // http://core.trac.wordpress.org/browser/tags/3.5.1/wp-includes/formatting.php#L2173
 function get_excerpt($text, $num_words=55, $more=null) {
-	if (null === $more) $more = '&hellip;';
+	if (null === $more) $more = '…';
 	$text = strip_tags($text);
 	//TODO: Check if word count is based on single characters (East Asian characters)
 	/*
@@ -1183,9 +1281,10 @@ function convert_to_utf8($html, $header=null) {
 				}
 			}
 		}
-		if (isset($encoding)) $encoding = trim($encoding);
-		// trim is important here!
-		if (!$encoding || (strtolower($encoding) == 'iso-8859-1')) {
+		if (isset($encoding)) $encoding = strtolower(trim($encoding));
+		// fix bad encoding values
+		if ($encoding === 'iso-8850-1') $encoding = 'iso-8859-1';
+		if (!$encoding || ($encoding === 'iso-8859-1')) {
 			// replace MS Word smart qutoes
 			$trans = array();
 			$trans[chr(130)] = '&sbquo;';    // Single Low-9 Quotation Mark
@@ -1219,7 +1318,7 @@ function convert_to_utf8($html, $header=null) {
 			$encoding = 'utf-8';
 		} else {
 			debug('Character encoding: '.$encoding);
-			if (strtolower($encoding) != 'utf-8') {
+			if ($encoding !== 'utf-8') {
 				debug('Converting to UTF-8');
 				$html = SimplePie_Misc::change_encoding($html, $encoding, 'utf-8');
 			}
@@ -1228,7 +1327,7 @@ function convert_to_utf8($html, $header=null) {
 	return $html;
 }
 
-function makeAbsolute($base, $elem) {
+function make_absolute($base, $elem) {
 	$base = new SimplePie_IRI($base);
 	// remove '//' in URL path (used to prevent URLs from resolving properly)
 	// TODO: check if this is still the case
@@ -1238,12 +1337,12 @@ function makeAbsolute($base, $elem) {
 		for ($i = $elems->length-1; $i >= 0; $i--) {
 			$e = $elems->item($i);
 			//$e->parentNode->replaceChild($articleContent->ownerDocument->createTextNode($e->textContent), $e);
-			makeAbsoluteAttr($base, $e, $attr);
+			make_absolute_attr($base, $e, $attr);
 		}
-		if (strtolower($elem->tagName) == $tag) makeAbsoluteAttr($base, $elem, $attr);
+		if (strtolower($elem->tagName) == $tag) make_absolute_attr($base, $elem, $attr);
 	}
 }
-function makeAbsoluteAttr($base, $e, $attr) {
+function make_absolute_attr($base, $e, $attr) {
 	if ($e->hasAttribute($attr)) {
 		// Trim leading and trailing white space. I don't really like this but 
 		// unfortunately it does appear on some sites. e.g.  <img src=" /path/to/image.jpg" />
@@ -1256,7 +1355,7 @@ function makeAbsoluteAttr($base, $e, $attr) {
 		}
 	}
 }
-function makeAbsoluteStr($base, $url) {
+function make_absolute_str($base, $url) {
 	$base = new SimplePie_IRI($base);
 	// remove '//' in URL path (causes URLs not to resolve properly)
 	if (isset($base->path)) $base->path = preg_replace('!//+!', '/', $base->path);
@@ -1271,7 +1370,7 @@ function makeAbsoluteStr($base, $url) {
 	}
 }
 // returns single page response, or false if not found
-function getSinglePage($item, $html, $url) {
+function get_single_page($item, $html, $url) {
 	global $http, $extractor;
 	debug('Looking for site config files to see if single page link exists');
 	$site_config = $extractor->buildSiteConfig($url, $html);
@@ -1308,7 +1407,7 @@ function getSinglePage($item, $html, $url) {
 			}
 		}
 		// If we've got URL, resolve against $url
-		if (isset($single_page_url) && ($single_page_url = makeAbsoluteStr($url, $single_page_url))) {
+		if (isset($single_page_url) && ($single_page_url = make_absolute_str($url, $single_page_url))) {
 			// check it's not what we have already!
 			if ($single_page_url != $url) {
 				// it's not, so let's try to fetch it...

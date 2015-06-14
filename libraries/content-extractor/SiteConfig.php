@@ -34,6 +34,9 @@ class SiteConfig
 	
 	// Strip images which contain these strings (0 or more) in the src attribute 
 	public $strip_image_src = array();
+
+	// Mark article as a native ad if any of these expressions match (0 or more xpath expressions)
+	public $native_ad_clue = array();
 	
 	// Additional HTTP headers to send
 	// NOT YET USED
@@ -182,7 +185,7 @@ class SiteConfig
 	
 	public function append(SiteConfig $newconfig) {
 		// check for commands where we accept multiple statements (no test_url)
-		foreach (array('title', 'body', 'author', 'date', 'strip', 'strip_id_or_class', 'strip_image_src', 'single_page_link', 'single_page_link_in_feed', 'next_page_link', 'http_header') as $var) {
+		foreach (array('title', 'body', 'author', 'date', 'strip', 'strip_id_or_class', 'strip_image_src', 'single_page_link', 'single_page_link_in_feed', 'next_page_link', 'native_ad_clue', 'http_header') as $var) {
 			// append array elements for this config variable from $newconfig to this config
 			//$this->$var = $this->$var + $newconfig->$var;
 			$this->$var = array_unique(array_merge($this->$var, $newconfig->$var));
@@ -323,6 +326,11 @@ class SiteConfig
 		}
 	}
 	
+	public static function build_from_string($string) {
+		$config_lines = explode("\n", $string);
+		return self::build_from_array($config_lines);
+	}
+
 	public static function build_from_array(array $lines) {
 		$config = new SiteConfig();
 		foreach ($lines as $line) {
@@ -340,7 +348,7 @@ class SiteConfig
 			if ($command == '' || $val == '') continue;
 			
 			// check for commands where we accept multiple statements
-			if (in_array($command, array('title', 'body', 'author', 'date', 'strip', 'strip_id_or_class', 'strip_image_src', 'single_page_link', 'single_page_link_in_feed', 'next_page_link', 'http_header', 'test_url', 'find_string', 'replace_string'))) {
+			if (in_array($command, array('title', 'body', 'author', 'date', 'strip', 'strip_id_or_class', 'strip_image_src', 'single_page_link', 'single_page_link_in_feed', 'next_page_link', 'native_ad_clue', 'http_header', 'test_url', 'find_string', 'replace_string'))) {
 				array_push($config->$command, $val);
 			// check for single statement commands that evaluate to true or false
 			} elseif (in_array($command, array('tidy', 'prune', 'autodetect_on_failure'))) {

@@ -19,6 +19,8 @@ define('JSONP', 3, true);
  class FeedWriter
  {
 	 private $self          = null;     // self URL - http://feed2.w3.org/docs/warning/MissingAtomSelfLink.html
+	 private $alternate     = array();  // alternate URL and title
+	 private $related       = array();  // related URL and title	 
 	 private $hubs          = array();  // PubSubHubbub hubs
 	 private $channels      = array();  // Collection of channel elements
 	 private $items         = array();  // Collection of items as object of FeedItem class.
@@ -240,10 +242,36 @@ define('JSONP', 3, true);
 	* @param    string URL
 	* @return   void
 	*/
-	public function setSelf($self)
+	public function setSelf($url)
 	{
-		$this->self = $self;    
-	}	
+		$this->self = $url;    
+	}
+
+	/**
+	* Set alternate URL
+	* 
+	* @access   public
+	* @param    string URL
+	* @param    string title
+	* @return   void
+	*/
+	public function setAlternate($url, $title)
+	{
+		$this->alternate = array('url'=>$url, 'title'=>$title);    
+	}
+
+	/**
+	* Set related URL
+	* 
+	* @access   public
+	* @param    string URL
+	* @param    string title
+	* @return   void
+	*/
+	public function setRelated($url, $title)
+	{
+		$this->related = array('url'=>$url, 'title'=>$title);    
+	}			
 	
 	/**
 	* Set the 'description' channel element
@@ -299,7 +327,7 @@ define('JSONP', 3, true);
 		{
 			$out  = '<?xml version="1.0" encoding="utf-8"?>'."\n";
 			if ($this->xsl) $out .= '<?xml-stylesheet type="text/xsl" href="'.htmlspecialchars($this->xsl).'"?>' . PHP_EOL;
-			$out .= '<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/">' . PHP_EOL;
+			$out .= '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/">' . PHP_EOL;
 			echo $out;
 		}
 		elseif ($this->version == JSON || $this->version == JSONP)
@@ -342,7 +370,7 @@ define('JSONP', 3, true);
 			{
 				foreach ($attributes as $key => $value) 
 				{
-					$attrText .= " $key=\"$value\" ";
+					$attrText .= " $key=\"".htmlspecialchars($value, ENT_COMPAT, 'UTF-8', false)."\" ";
 				}
 			}
 			$nodeText .= "<{$tagName}{$attrText}>";
@@ -356,7 +384,7 @@ define('JSONP', 3, true);
 			else
 			{
 				//$nodeText .= (in_array($tagName, $this->CDATAEncoding))? $tagContent : htmlentities($tagContent);
-				$nodeText .= htmlspecialchars($tagContent);
+				$nodeText .= htmlspecialchars($tagContent, ENT_COMPAT, 'UTF-8', false);
 			}           
 			//$nodeText .= (in_array($tagName, $this->CDATAEncoding))? "]]></$tagName>" : "</$tagName>";
 			$nodeText .= "</$tagName>";
@@ -408,13 +436,21 @@ define('JSONP', 3, true);
 			// add hubs
 			foreach ($this->hubs as $hub) {
 				//echo $this->makeNode('link', '', array('rel'=>'hub', 'href'=>$hub, 'xmlns'=>'http://www.w3.org/2005/Atom'));
-				echo '<link rel="hub"  href="'.htmlspecialchars($hub).'" xmlns="http://www.w3.org/2005/Atom" />' . PHP_EOL;
+				echo '<atom:link rel="hub"  href="'.htmlspecialchars($hub).'" />' . PHP_EOL;
 			}
 			// add self
 			if (isset($this->self)) {
 				//echo $this->makeNode('link', '', array('rel'=>'self', 'href'=>$this->self, 'xmlns'=>'http://www.w3.org/2005/Atom'));
-				echo '<link rel="self" href="'.htmlspecialchars($this->self).'" xmlns="http://www.w3.org/2005/Atom" />' . PHP_EOL;
+				echo '<atom:link rel="self" href="'.htmlspecialchars($this->self).'" />' . PHP_EOL;
 			}
+			// add alternate
+			if (isset($this->alternate)) {
+				echo '<atom:link rel="alternate" title="'.htmlspecialchars($this->alternate['title']).'" href="'.htmlspecialchars($this->alternate['url']).'" />' . PHP_EOL;
+			}
+			// add related
+			if (isset($this->related)) {
+				echo '<atom:link rel="related" title="'.htmlspecialchars($this->related['title']).'" href="'.htmlspecialchars($this->related['url']).'" />' . PHP_EOL;
+			}			
 			//Print Items of channel
 			foreach ($this->channels as $key => $value) 
 			{
