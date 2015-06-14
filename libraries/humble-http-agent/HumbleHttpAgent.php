@@ -34,7 +34,7 @@ class HumbleHttpAgent
 	protected $curlOptions;
 	protected $minimiseMemoryUse = false; //TODO
 	protected $method;
-	protected $cookieJar;
+	protected $cookieJar = array();
 	public $debug = false;
 	public $debugVerbose = false;
 	public $rewriteHashbangFragment = true; // see http://code.google.com/web/ajaxcrawling/docs/specification.html
@@ -79,7 +79,7 @@ class HumbleHttpAgent
 			require_once(dirname(__FILE__).'/RollingCurl.php');
 		}
 		// create cookie jar
-		$this->cookieJar = new CookieJar();
+		// $this->cookieJar = new CookieJar();
 		// set request options (redirect must be 0)
 		// HTTP PECL (http://php.net/manual/en/http.request.options.php)
 		$this->requestOptions = array(
@@ -284,6 +284,7 @@ class HumbleHttpAgent
 			$this->debug("Following redirects #$redirects...");
 			$this->fetchAllOnce($this->redirectQueue, $isRedirect=true);
 		}
+		$this->deleteCookies();
 	}
 	
 	// fetch all URLs without following redirects
@@ -326,7 +327,7 @@ class HumbleHttpAgent
 							}
 							$httpRequest = new HttpRequest($req_url, $_meth, $this->requestOptions);
 							// send cookies, if we have any
-							if ($cookies = $this->cookieJar->getMatchingCookies($req_url)) {
+							if ($cookies = $this->getCookies($orig, $req_url)) {
 								$this->debug("......sending cookies: $cookies");
 								$httpRequest->addHeaders(array('Cookie' => $cookies));
 							}
@@ -374,10 +375,7 @@ class HumbleHttpAgent
 								}
 								if ($this->validateURL($redirectURL)) {
 									$this->debug('Redirect detected. Valid URL: '.$redirectURL);
-									// store any cookies
-									$cookies = $request->getResponseHeader('set-cookie');
-									if ($cookies && !is_array($cookies)) $cookies = array($cookies);
-									if ($cookies) $this->cookieJar->storeCookies($url, $cookies);
+									$this->storeCookies($orig, $url);
 									$this->redirectQueue[$orig] = $redirectURL;
 								} else {
 									$this->debug('Redirect detected. Invalid URL: '.$redirectURL);
@@ -459,7 +457,7 @@ class HumbleHttpAgent
 						// add referer for picky sites
 						$headers[] = 'Referer: '.$this->referer;
 						// send cookies, if we have any
-						if ($cookies = $this->cookieJar->getMatchingCookies($req_url)) {
+						if ($cookies = $this->getCookies($orig, $req_url)) {
 							$this->debug("......sending cookies: $cookies");
 							$headers[] = 'Cookie: '.$cookies;
 						}
@@ -496,9 +494,7 @@ class HumbleHttpAgent
 							}
 							if ($this->validateURL($redirectURL)) {
 								$this->debug('Redirect detected. Valid URL: '.$redirectURL);
-								// store any cookies
-								$cookies = $this->cookieJar->extractCookies($this->requests[$orig]['headers']);
-								if (!empty($cookies)) $this->cookieJar->storeCookies($url, $cookies);							
+								$this->storeCookies($orig, $url);							
 								$this->redirectQueue[$orig] = $redirectURL;
 							} else {
 								$this->debug('Redirect detected. Invalid URL: '.$redirectURL);
@@ -557,7 +553,7 @@ class HumbleHttpAgent
 					$httpContext['http']['header'] .= $this->getUserAgent($req_url)."\r\n";
 					// add referer for picky sites
 					$httpContext['http']['header'] .= 'Referer: '.$this->referer."\r\n";
-					if ($cookies = $this->cookieJar->getMatchingCookies($req_url)) {
+					if ($cookies = $this->getCookies($orig, $req_url)) {
 						$this->debug("......sending cookies: $cookies");
 						$httpContext['http']['header'] .= 'Cookie: '.$cookies."\r\n";
 					}
@@ -589,9 +585,7 @@ class HumbleHttpAgent
 								}
 								if ($this->validateURL($redirectURL)) {
 									$this->debug('Redirect detected. Valid URL: '.$redirectURL);
-									// store any cookies
-									$cookies = $this->cookieJar->extractCookies($this->requests[$orig]['headers']);
-									if (!empty($cookies)) $this->cookieJar->storeCookies($url, $cookies);
+									$this->storeCookies($orig, $url);
 									$this->redirectQueue[$orig] = $redirectURL;
 								} else {
 									$this->debug('Redirect detected. Invalid URL: '.$redirectURL);
@@ -708,6 +702,30 @@ class HumbleHttpAgent
 			return in_array($ext, $this->headerOnlyClues);
 		}
 		return false;
+	}
+	
+	protected function getCookies($orig, $req_url) {
+		$jar = $this->cookieJar[$orig];
+		if (!isset($jar)) {
+			return null;
+		}
+		return $jar->getMatchingCookies($req_url);
+	}
+
+	protected function storeCookies($orig, $url) {
+		$headers = $this->requests[$orig]['headers'];
+		$cookies = CookieJar::extractCookies($headers);
+		if (empty($cookies)) {
+			return;
+		}
+		if (!isset($this->cookieJar[$orig])) {
+			$this->cookieJar[$orig] = new CookieJar();
+		}
+		$this->cookieJar[$orig]->storeCookies($url, $cookies);
+	}
+
+	protected function deleteCookies() {
+		$this->cookieJar = array();
 	}
 }
 

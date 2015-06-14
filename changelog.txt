@@ -2,6 +2,10 @@ FiveFilters.org: Full-Text RSS
 http://fivefilters.org/content-only/
 CHANGELOG
 ------------------------------------
+
+3.4.1 (unreleased)
+ - Backporting Dave Vasilevsky cookie patch. Fixes issues with certain sites. See https://gist.github.com/fivefilters/0a758b6d64ce4fb5728c
+
 3.4 (2014-09-08)
  - New request parameter: siteconfig lets you submit extraction rules directly in request
  - New request paramter: accept=(auto|feed|html) determines what we'll accept as a response (deprecates html=1 parameter)

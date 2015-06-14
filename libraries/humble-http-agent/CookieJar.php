@@ -229,7 +229,7 @@ class CookieJar
     }
 	
 	// return array of set-cookie values extracted from HTTP response headers (string $h)
-	public function extractCookies($h) {
+	public static function extractCookies($h) {
         $x = 0;
         $lines = 0;
         $headers = array();
