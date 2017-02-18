@@ -3,7 +3,7 @@ Full-Text RSS
 
 ### NOTE
 
-This is a our public version of Full-Text RSS available to download for free from <http://code.fivefilters.org>.
+This is a our public version of Full-Text RSS available to download for free from <https://bitbucket.org/fivefilters>.
 
 For best extraction results, and to help us sustain the project, you can purchase the most up-to-date version at <http://fivefilters.org/content-only/#download> - so if you like this free version, please consider supporting us by purchasing the latest release. 
 
