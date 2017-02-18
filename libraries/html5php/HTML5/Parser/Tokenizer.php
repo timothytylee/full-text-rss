@@ -200,10 +200,12 @@ class Tokenizer
         if (is_null($this->untilTag)) {
             return $this->text();
         }
-        $sequence = '</' . $this->untilTag . '>';
+        $sequence = '</' . $this->untilTag;
         $txt = '';
         $tok = $this->scanner->current();
-        while ($tok !== false && ! ($tok == '<' && ($this->sequenceMatches($sequence) || $this->sequenceMatches(strtoupper($sequence))))) {
+
+        $caseSensitive = !Elements::isHtml5Element($this->untilTag);
+        while ($tok !== false && ! ($tok == '<' && ($this->sequenceMatches($sequence, $caseSensitive)))) {
             if ($tok == '&') {
                 $txt .= $this->decodeCharacterReference();
                 $tok = $this->scanner->current();
@@ -212,6 +214,13 @@ class Tokenizer
                 $tok = $this->scanner->next();
             }
         }
+        $len = strlen($sequence);
+        $this->scanner->consume($len);
+        $len += strlen($this->scanner->whitespace());
+        if ($this->scanner->current() !== '>') {
+            $this->parseError("Unclosed RCDATA end tag");
+        }
+        $this->scanner->unconsume($len);
         $this->events->text($txt);
         $this->setTextMode(0);
         return $this->endTag();
@@ -353,7 +362,7 @@ class Tokenizer
         }
 
         // We know this is at least one char.
-        $name = strtolower($this->scanner->charsWhile(":0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"));
+        $name = strtolower($this->scanner->charsWhile(":_-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"));
         $attributes = array();
         $selfClose = false;
 
@@ -891,7 +900,7 @@ class Tokenizer
             $buffer .= $this->scanner->charsUntil($first);
 
             // Stop as soon as we hit the stopping condition.
-            if ($this->sequenceMatches($sequence) || $this->sequenceMatches(strtoupper($sequence))) {
+            if ($this->sequenceMatches($sequence, false)) {
                 return $buffer;
             }
             $buffer .= $this->scanner->current();
@@ -916,7 +925,7 @@ class Tokenizer
      * see if the input stream is at the start of a
      * '</script>' string.
      */
-    protected function sequenceMatches($sequence)
+    protected function sequenceMatches($sequence, $caseSensitive = true)
     {
         $len = strlen($sequence);
         $buffer = '';
@@ -932,7 +941,7 @@ class Tokenizer
         }
 
         $this->scanner->unconsume($len);
-        return $buffer == $sequence;
+        return $caseSensitive ? $buffer == $sequence : strcasecmp($buffer, $sequence) === 0;
     }
 
     /**
@@ -1056,8 +1065,14 @@ class Tokenizer
             // [a-zA-Z0-9]+;
             $cname = $this->scanner->getAsciiAlpha();
             $entity = CharacterReference::lookupName($cname);
+
+            // When no entity is found provide the name of the unmatched string
+            // and continue on as the & is not part of an entity. The & will
+            // be converted to &amp; elsewhere.
             if ($entity == null) {
-                $this->parseError("No match in entity table for '%s'", $entity);
+                $this->parseError("No match in entity table for '%s'", $cname);
+                $this->scanner->unconsume($this->scanner->position() - $start);
+                return '&';
             }
         }
 

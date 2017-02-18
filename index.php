@@ -582,8 +582,8 @@ if (!defined('_FF_FTR_INDEX')) {
 
 	<h3>System Requirements</h3>
 	
-	<p>PHP 5.2 or above is required. A simple shared web hosting account will work fine.
-	The code has been tested on Windows and Linux using the Apache web server. If you're a Windows user, you can try it on your own machine using <a href="http://www.wampserver.com/en/index.php">WampServer</a>. It has also been reported as working under IIS, but we have not tested this ourselves.</p>
+	<p>PHP 5.3 or above is required. A simple shared web hosting account should work fine, but we recommend a <a href="http://help.fivefilters.org/customer/portal/articles/1143210-hosting">VPS with 1GB RAM</a>.
+	The code has been tested on Windows and Linux using the Apache web server. If you're a Windows user, you can try it on your own machine using <a href="http://www.uniformserver.com/">Uniform Server</a>. It has also been reported as working under IIS, but we have not tested this ourselves.</p>
 	
 	<h3 id="download">Download</h3>
 	<p>Download from <a href="http://fivefilters.org/content-only/#download">fivefilters.org</a> &mdash; old versions are available in our <a href="http://code.fivefilters.org">code repository</a>.</p>

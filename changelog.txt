@@ -2,6 +2,19 @@ FiveFilters.org: Full-Text RSS
 http://fivefilters.org/content-only/
 CHANGELOG
 ------------------------------------
+3.5 (2015-06-13)
+ - Open Graph properties og:title, og:type, og:url, og:image, and og:description now returned if found in the page being processed
+ - Bug fix: certain XPath expressions weren't being evaluated correctly when HTML5 parsing was enabled
+ - Cookie handling now only on redirects - fixes issue with certain sites (thanks to Dave Vasilevsky)
+ - Compatibility test will no longer show HHVM as incompatible - Full-Text RSS worked with HHVM 3.7.1 in our tests (but without Tidy support and no automatic site config updates)
+ - Humble HTTP Agent updated to support version 2 of PHP's HTTP extension
+ - HTML5-PHP library updated
+ - Site config files can now include HTTP headers (user-agent, cookie, referer), e.g. http_header(user-agent): PHP/5.6
+ - Config option removed: $options->user_agents - use site config files.
+ - Site config files which use single_page_link can now follow it with if_page_contains: XPath to make it conditional.
+ - Minimum supported PHP version is now 5.3. If you must use PHP 5.2, please download Full-Text RSS 3.4
+ - Site config files updated for better extraction
+ - Other minor fixes/improvements
 
 3.4.1 (unreleased)
  - Backporting Dave Vasilevsky cookie patch. Fixes issues with certain sites. See https://gist.github.com/fivefilters/0a758b6d64ce4fb5728c

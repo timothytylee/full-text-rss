@@ -16,17 +16,19 @@ SimplePie.org. We have kept most of their checks intact as we use SimplePie in o
 http://github.com/simplepie/simplepie/tree/master/compatibility_test/
 */
 
-$app_name = 'Full-Text RSS 3.3';
+$app_name = 'Full-Text RSS 3.5';
 
 // Full-Text RSS is not yet compatible with HHVM, that's why we check for it with HHVM_VERSION.
-$php_ok = (function_exists('version_compare') && version_compare(phpversion(), '5.2.0', '>=') && !defined('HHVM_VERSION'));
+//$php_ok = (function_exists('version_compare') && version_compare(phpversion(), '5.2.0', '>=') && !defined('HHVM_VERSION'));
+// HHVM works okay, but no Tidy and autoupdate of site config files not working (tested 3.7.1)
+$php_ok = (function_exists('version_compare') && version_compare(phpversion(), '5.3.0', '>='));
 $pcre_ok = extension_loaded('pcre');
 $zlib_ok = extension_loaded('zlib');
 $mbstring_ok = extension_loaded('mbstring');
 $iconv_ok = extension_loaded('iconv');
 $tidy_ok = function_exists('tidy_parse_string');
 $curl_ok = function_exists('curl_exec');
-$parallel_ok = ((extension_loaded('http') && class_exists('HttpRequestPool')) || ($curl_ok && function_exists('curl_multi_init')));
+$parallel_ok = ((extension_loaded('http') && class_exists('http\Client\Request')) || ($curl_ok && function_exists('curl_multi_init')));
 $allow_url_fopen_ok = (bool)ini_get('allow_url_fopen');
 $filter_ok = extension_loaded('filter');
 
@@ -201,7 +203,7 @@ div.chunk {
 				<tbody>
 					<tr class="<?php echo ($php_ok) ? 'enabled' : 'disabled'; ?>">
 						<td>PHP</td>
-						<td>5.2.0 or higher</td>
+						<td>5.3 or higher</td>
 						<td><?php echo phpversion(); ?></td>
 					</tr>
 					<tr class="<?php echo ($xml_ok) ? 'enabled, and sane' : 'disabled, or broken'; ?>">
@@ -306,9 +308,9 @@ div.chunk {
 										<?php endif; ?>
 			
 										<?php if ($parallel_ok): ?>
-											<li><strong>Parallel URL fetching:</strong> You have <code>HttpRequestPool</code> or <code>curl_multi</code> support installed.  No problems here.</li>
+											<li><strong>Parallel URL fetching:</strong> You have PHP's HTTP extension or <code>curl_multi</code> installed.  No problems here.</li>
 										<?php else: ?>
-											<li class="highlight"><strong>Parallel URL fetching:</strong> <code>HttpRequestPool</code> or <code>curl_multi</code> support is not available.  <?php echo $app_name; ?> will use <code>file_get_contents()</code> instead to fetch URLs sequentially rather than in parallel.</li>
+											<li class="highlight"><strong>Parallel URL fetching:</strong> HTTP extension or <code>curl_multi</code> support is not available.  <?php echo $app_name; ?> will use <code>file_get_contents()</code> instead to fetch URLs sequentially rather than in parallel.</li>
 										<?php endif; ?>
 
 									<?php else: ?>
@@ -352,11 +354,11 @@ div.chunk {
 		<div class="chunk">
 			<h3>Further info</h3>
 			<h4>HTTP module</h4>
-			<p>Full-Text RSS can make use of <code>HttpRequestPool</code> or <code>curl_multi</code> to make parallel HTTP requests when processing feeds. If neither are available, it will make sequential requests using <code>file_get_contents</code>.</p>
+			<p>Full-Text RSS can make use of PHP's HTTP extension or <code>curl_multi</code> to make parallel HTTP requests when processing feeds. If neither are available, it will make sequential requests using <code>file_get_contents</code>.</p>
 			<?php 
 			$http_type = 'file_get_contents';
-			if (extension_loaded('http') && class_exists('HttpRequestPool')) {
-				$http_type = 'HttpRequestPool';
+			if (extension_loaded('http') && class_exists('http\Client\Request')) {
+				$http_type = 'HTTP extension';
 			} elseif ($curl_ok && function_exists('curl_multi_init')) {
 				$http_type = 'curl_multi';
 			}

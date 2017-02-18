@@ -12,7 +12,7 @@
 * More information: http://fivefilters.org/content-only/
 * License: Apache License, Version 2.0
 * Requires: PHP5
-* Date: 2014-03-27
+* Date: 2015-06-01
 * 
 * Differences between the PHP port and the original
 * ------------------------------------------------------
@@ -95,7 +95,7 @@ class Readability
 		// 'trimRe' => '/^\s+|\s+$/g', // PHP has trim()
 		'normalize' => '/\s{2,}/',
 		'killBreaks' => '/(<br\s*\/?>(\s|&nbsp;?)*){1,}/',
-		'video' => '!//(player\.|www\.)?(youtube\.com|vimeo\.com|viddler\.com|twitch\.tv)!i',
+		'video' => '!//(player\.|www\.)?(youtube\.com|vimeo\.com|viddler\.com|soundcloud\.com|twitch\.tv)!i',
 		'skipFootnoteLink' => '/^\s*(\[?[a-z0-9]{1,2}\]?|^|edit|citation needed)\s*$/i'
 	);	
 	
@@ -121,8 +121,12 @@ class Readability
 			if (version_compare(PHP_VERSION, '5.3.0') >= 0) {
 				//use Masterminds\HTML5;
 				$html5class = 'Masterminds\HTML5';
-				$html5 = new $html5class();				
+				$html5 = new $html5class(array('disable_html_ns' => true));
 				$this->dom = $html5->loadHTML($html);
+				//echo $html5->saveHTML($this->dom);exit;
+				//$xpath = new DOMXPath($this->dom);
+				//$elems = $xpath->query("//a");
+				//print_r($elems);exit;
 			}
 		}
 		if ($this->dom === null) {
@@ -314,7 +318,11 @@ class Readability
 		$styleTags = $this->dom->getElementsByTagName('style');
 		for ($i = $styleTags->length-1; $i >= 0; $i--)
 		{
-			$styleTags->item($i)->parentNode->removeChild($styleTags->item($i));
+			try {
+				@$styleTags->item($i)->parentNode->removeChild($styleTags->item($i));
+			} catch (Exception $e) {
+				// Do nothing
+			}
 		}
 
 		/* Turn all double br's into p's */
@@ -832,7 +840,11 @@ class Readability
 		$scripts = $doc->getElementsByTagName('script');
 		for($i = $scripts->length-1; $i >= 0; $i--)
 		{
-			$scripts->item($i)->parentNode->removeChild($scripts->item($i));
+			try {
+				$scripts->item($i)->parentNode->removeChild($scripts->item($i));
+			} catch (Exception $e) {
+				// do nothing
+			}
 		}
 	}
 	

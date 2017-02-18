@@ -1,9 +1,9 @@
 <?php
 // Update site config files for Full-Text RSS
 // Author: Keyvan Minoukadeh
-// Copyright (c) 2014 Keyvan Minoukadeh
+// Copyright (c) 2015 Keyvan Minoukadeh
 // License: AGPLv3
-// Date: 2014-08-19
+// Date: 2015-06-10
 // More info: http://fivefilters.org/content-only/
 // Help: http://help.fivefilters.org
 
@@ -245,7 +245,7 @@ function println($txt) {
 }
 
 function rrmdir($dir) {
-    foreach(glob($dir . '/{*.txt,*.php,.*.txt,.*.php,.gitattributes,.gitignore,ftr-site-config-master,README.md}', GLOB_BRACE|GLOB_NOSORT) as $file) {
+    foreach(glob($dir . '/{*.txt,*.php,*.com,.*.txt,.*.php,.*.com,.gitattributes,.gitignore,ftr-site-config-master,README.md}', GLOB_BRACE|GLOB_NOSORT) as $file) {
         if(is_dir($file)) {
             rrmdir($file);
         } else {

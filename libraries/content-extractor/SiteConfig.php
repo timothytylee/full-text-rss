@@ -5,10 +5,10 @@
  * Each instance of this class should hold extraction patterns and other directives
  * for a website. See ContentExtractor class to see how it's used.
  * 
- * @version 0.8
- * @date 2013-04-16
+ * @version 1.0
+ * @date 2015-06-09
  * @author Keyvan Minoukadeh
- * @copyright 2013 Keyvan Minoukadeh
+ * @copyright 2015 Keyvan Minoukadeh
  * @license http://www.gnu.org/licenses/agpl-3.0.html AGPL v3
  */
 
@@ -38,8 +38,7 @@ class SiteConfig
 	// Mark article as a native ad if any of these expressions match (0 or more xpath expressions)
 	public $native_ad_clue = array();
 	
-	// Additional HTTP headers to send
-	// NOT YET USED
+	// Additional HTTP headers to send (associative array)
 	public $http_header = array();
 	
 	// Process HTML with tidy before creating DOM (bool or null if undeclared)
@@ -66,6 +65,15 @@ class SiteConfig
 	
 	// Test URL - if present, can be used to test the config above
 	public $test_url = array();
+
+	// Test URL contains - one or more snippets of text from the article body.
+	// Used to determine if the extraction rules for the site are still valid (ie. still extracting relevant content)
+	// Keys should be one or more of the test URLs supplied, and value an array of strings to look for.
+	public $test_contains = array();
+
+	// If page contains - XPath expression. Used to determine if the preceding rule gets evaluated or not.
+	// Currently only works with single_page_link.
+	public $if_page_contains = array();	
 	
 	// Single-page link - should identify a link element or URL pointing to the page holding the entire article
 	// This is useful for sites which split their articles across multiple pages. Links to such pages tend to 
@@ -185,10 +193,22 @@ class SiteConfig
 	
 	public function append(SiteConfig $newconfig) {
 		// check for commands where we accept multiple statements (no test_url)
-		foreach (array('title', 'body', 'author', 'date', 'strip', 'strip_id_or_class', 'strip_image_src', 'single_page_link', 'single_page_link_in_feed', 'next_page_link', 'native_ad_clue', 'http_header') as $var) {
+		foreach (array('title', 'body', 'author', 'date', 'strip', 'strip_id_or_class', 'strip_image_src', 'single_page_link', 'single_page_link_in_feed', 'next_page_link', 'native_ad_clue') as $var) {
 			// append array elements for this config variable from $newconfig to this config
 			//$this->$var = $this->$var + $newconfig->$var;
 			$this->$var = array_unique(array_merge($this->$var, $newconfig->$var));
+		}
+		// special handling of commands where key is important and config values being appended should not overwrite existing ones
+		foreach (array('http_header') as $var) {
+			$this->$var = array_merge($newconfig->$var, $this->$var);
+		}
+		// special handling of if_page_contains directive
+		foreach (array('single_page_link') as $var) {
+			if (isset($this->if_page_contains[$var]) && isset($newconfig->if_page_contains[$var])) {
+				$this->if_page_contains[$var] = array_merge($newconfig->if_page_contains[$var], $this->if_page_contains[$var]);
+			} elseif (isset($newconfig->if_page_contains[$var])) {
+				$this->if_page_contains[$var] = $newconfig->if_page_contains[$var];
+			}
 		}
 		// check for single statement commands
 		// we do not overwrite existing non null values
@@ -211,6 +231,40 @@ class SiteConfig
 		$key_suffix = basename(self::$config_path);
 		if ($key_suffix === 'custom') $key_suffix = '';
 		return $key_suffix;
+	}
+
+	// Add test_contains to last test_url
+	public function add_test_contains($test_contains) {
+		if (!empty($this->test_url)) {
+			$test_contains = (string) $test_contains;
+			$key = end($this->test_url);
+			reset($this->test_url);
+			if (isset($this->test_contains[$key])) {
+				$this->test_contains[$key][] = $test_contains;
+			} else {
+				$this->test_contains[$key] = array($test_contains);
+			}
+		}
+	}
+
+	// Add if_page_page_contains
+	// TODO: Expand so it can be used with other rules too
+	public function add_if_page_contains_condition($if_page_contains) {
+		if (!empty($this->single_page_link)) {
+			$if_page_contains = (string) $if_page_contains;
+			$key = end($this->single_page_link);
+			reset($this->single_page_link);
+			$this->if_page_contains['single_page_link'][$key] = $if_page_contains;
+		}
+	}
+
+	public function get_if_page_contains_condition($directive_name, $directive_value) {
+		if (isset($this->if_page_contains[$directive_name])) {
+			if (isset($this->if_page_contains[$directive_name][$directive_value])) {
+				return $this->if_page_contains[$directive_name][$directive_value];
+			}
+		}
+		return null;
 	}
 
 	// returns SiteConfig instance if an appropriate one is found, false otherwise
@@ -356,12 +410,20 @@ class SiteConfig
 			// check for single statement commands stored as strings
 			} elseif (in_array($command, array('parser'))) {
 				$config->$command = $val;
+			// special treatment for test_contains
+			} elseif (in_array($command, array('test_contains'))) {
+				$config->add_test_contains($val);
+			// special treatment for if_page_contains
+			} elseif (in_array($command, array('if_page_contains'))) {
+				$config->add_if_page_contains_condition($val);
 			// check for replace_string(find): replace
 			} elseif ((substr($command, -1) == ')') && preg_match('!^([a-z0-9_]+)\((.*?)\)$!i', $command, $match)) {
 				if (in_array($match[1], array('replace_string'))) {
-					$command = $match[1];
 					array_push($config->find_string, $match[2]);
-					array_push($config->$command, $val);
+					array_push($config->replace_string, $val);
+				} elseif (in_array($match[1], array('http_header'))) {
+					$_header = strtolower(trim($match[2]));
+					$config->http_header[$_header] = $val;
 				}
 			}
 		}

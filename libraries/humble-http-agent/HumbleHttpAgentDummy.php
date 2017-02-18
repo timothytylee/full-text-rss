@@ -22,6 +22,7 @@ class HumbleHttpAgentDummy
 	public $userAgentMap = array();
 	public $rewriteUrls = array();
 	public $userAgentDefault;
+	public $siteConfigBuilder = null;
 	public $referer;
 	
 	protected $body = '';

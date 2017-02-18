@@ -1,10 +1,10 @@
 <?php
 // Full-Text RSS: Create Full-Text Feeds
 // Author: Keyvan Minoukadeh
-// Copyright (c) 2014 Keyvan Minoukadeh
+// Copyright (c) 2015 Keyvan Minoukadeh
 // License: AGPLv3
-// Version: 3.4
-// Date: 2014-08-28
+// Version: 3.5
+// Date: 2015-05-29
 // More info: http://fivefilters.org/content-only/
 // Help: http://help.fivefilters.org
 
@@ -30,6 +30,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 error_reporting(E_ALL ^ E_NOTICE);
 libxml_use_internal_errors(true);
+libxml_disable_entity_loader(true);
 ini_set("display_errors", 1);
 @set_time_limit(120);
 
@@ -234,7 +235,7 @@ if (isset($_REQUEST['accept']) && in_array(strtolower($_REQUEST['accept']), arra
 $user_submitted_config = null;
 if (isset($_REQUEST['siteconfig'])) {
 	$user_submitted_config = $_REQUEST['siteconfig'];
-	if (!$options->user_submitted_content && $user_submitted_config) {
+	if (!$options->user_submitted_config && $user_submitted_config) {
 		die('User-submitted site configs are currently disabled. Please remove the siteconfig parameter.');
 	}
 }
@@ -526,7 +527,8 @@ if (isset($_REQUEST['inputhtml']) && _FF_FTR_MODE == 'simple') {
 	}
 	$http = new HumbleHttpAgent($_req_options);
 	$http->debug = $debug_mode;
-	$http->userAgentMap = $options->user_agents;
+	// User agents can now be set in site config files using the http_header directive
+	//$http->userAgentMap = $options->user_agents;
 	$http->headerOnlyTypes = array_keys($options->content_type_exc);
 	$http->rewriteUrls = $options->rewrite_url;
 	unset($_req_options);
@@ -545,6 +547,7 @@ $extractor->parserOverride = $parser;
 if ($options->user_submitted_config && $user_submitted_config) {
 	$extractor->setUserSubmittedConfig($user_submitted_config);
 }
+$http->siteConfigBuilder = $extractor;
 
 ////////////////////////////////
 // Get RSS/Atom feed
@@ -655,7 +658,7 @@ $items = $feed->get_items(0, $max);
 $urls_sanitized = array();
 $urls = array();
 foreach ($items as $key => $item) {
-	$permalink = htmlspecialchars_decode($item->get_permalink());
+	$permalink = htmlspecialchars_decode(trim($item->get_permalink()));
 	// Colons in URL path segments get encoded by SimplePie, yet some sites expect them unencoded
 	$permalink = str_replace('%3A', ':', $permalink);
 	// validateUrl() strips non-ascii characters
@@ -971,6 +974,13 @@ foreach ($items as $key => $item) {
 			// for now choose first item
 			$newitem->addElement('dc:creator', $author);
 			break;
+		}
+	}
+
+	// add open graph
+	if ($opengraph = $extractor->getOpenGraph()) {
+		foreach ($opengraph as $og_prop => $og_val) {
+			$newitem->addElement($og_prop, $og_val);
 		}
 	}
 	
@@ -1390,6 +1400,17 @@ function get_single_page($item, $html, $url) {
 		// Loop through single_page_link xpath expressions
 		$single_page_url = null;
 		foreach ($splink as $pattern) {
+			// Do we have conditions?
+			$condition = $site_config->get_if_page_contains_condition('single_page_link', $pattern);
+			if ($condition) {
+				$elems = @$xpath->evaluate($condition, $readability->dom);
+				if ($elems instanceof DOMNodeList && $elems->length > 0) {
+					// all fine
+				} else {
+					// move on to next single page link XPath
+					continue;
+				}
+			}
 			$elems = @$xpath->evaluate($pattern, $readability->dom);
 			if (is_string($elems)) {
 				$single_page_url = trim($elems);

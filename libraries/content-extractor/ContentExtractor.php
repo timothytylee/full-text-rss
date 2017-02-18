@@ -15,12 +15,12 @@
 class ContentExtractor
 {
 	protected static $tidy_config = array(
-				 'clean' => true,
+				 'clean' => false, // can't preserve wbr tabs if this is set to true
 				 'output-xhtml' => true,
 				 'logical-emphasis' => true,
 				 'show-body-only' => false,
-				 'new-blocklevel-tags' => 'article, aside, footer, header, hgroup, menu, nav, section, details, datagrid',
-				 'new-inline-tags' => 'mark, time, meter, progress, data',
+				 'new-blocklevel-tags' => 'article aside footer header hgroup menu nav section details datagrid',
+				 'new-inline-tags' => 'mark time meter progress data wbr',
 				 'wrap' => 0,
 				 'drop-empty-paras' => true,
 				 'drop-proprietary-attributes' => false,
@@ -42,6 +42,7 @@ class ContentExtractor
 	protected $body;
 	protected $success = false;
 	protected $nextPageUrl;
+	protected $opengraph = array();
 	public $allowedParsers = array('libxml', 'html5php');
 	public $defaultParser = 'libxml';
 	public $parserOverride = null;
@@ -79,6 +80,7 @@ class ContentExtractor
 		$this->date = null;
 		$this->nextPageUrl = null;
 		$this->success = false;
+		$this->opengraph = array();
 	}
 
 	public function findHostUsingFingerprints($html) {
@@ -109,8 +111,11 @@ class ContentExtractor
 		if (substr($host, 0, 4) == 'www.') $host = substr($host, 4);
 		// is merged version already cached?
 		if (SiteConfig::is_cached("$host.merged")) {
-			$this->debug("Returning cached and merged site config for $host");
-			return SiteConfig::build("$host.merged");
+			$config = SiteConfig::build("$host.merged");
+			if ($config) {
+				$this->debug("Returning cached and merged site config for $host");
+				return $config;
+			}
 		}
 		// let's build from site_config/custom/ and standard/
 		$config = SiteConfig::build($host);
@@ -315,7 +320,25 @@ class ContentExtractor
 				if ($this->language) break;
 			}
 		}
-		
+
+		// try to open graph properties
+		$elems = @$xpath->query("//head//meta[@property='og:title' or @property='og:type' or @property='og:url' or @property='og:image' or @property='og:description']", $this->readability->dom);
+		// check for matches
+		if ($elems && $elems->length > 0) {
+			$this->debug('Extracting Open Graph elements');
+			foreach ($elems as $elem) {
+				if ($elem->hasAttribute('content')) {
+					$_prop = strtolower($elem->getAttribute('property'));
+					$_val = $elem->getAttribute('content');
+					// currently one of each is returned, so we keep the first one
+					if (!isset($this->opengraph[$_prop])) {
+						$this->opengraph[$_prop] = $_val;
+					}
+				}
+			}
+			unset($_prop, $_val);
+		}
+
 		// try to get date
 		foreach ($this->config->date as $pattern) {
 			$elems = @$xpath->evaluate($pattern, $this->readability->dom);
@@ -393,6 +416,16 @@ class ContentExtractor
 		// check for matches
 		if ($elems && $elems->length > 0) {
 			$this->debug('Stripping '.$elems->length.' elements with inline display:none style');
+			for ($i=$elems->length-1; $i >= 0; $i--) {
+				$elems->item($i)->parentNode->removeChild($elems->item($i));
+			}
+		}
+
+		// strip empty a elements
+		$elems = $xpath->query("//a[not(./*) and normalize-space(.)='']", $this->readability->dom);
+		// check for matches
+		if ($elems && $elems->length > 0) {
+			$this->debug('Stripping '.$elems->length.' empty a elements');
 			for ($i=$elems->length-1; $i >= 0; $i--) {
 				$elems->item($i)->parentNode->removeChild($elems->item($i));
 			}
@@ -787,6 +820,10 @@ class ContentExtractor
 
 	public function getContent() {
 		return $this->body;
+	}
+
+	public function getOpenGraph() {
+		return $this->opengraph;
 	}
 
 	public function isNativeAd() {

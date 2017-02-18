@@ -10,6 +10,7 @@ But after some initial refactoring work, we began a new parser.
 - Event-based (SAX-like) parser
 - DOM tree builder
 - Interoperability with QueryPath [[in progress](https://github.com/technosophos/querypath/issues/114)]
+- Runs on **PHP** 5.3.0 or newer and **HHVM** 3.2 or newer
 
 [![Build Status](https://travis-ci.org/Masterminds/html5-php.png?branch=master)](https://travis-ci.org/Masterminds/html5-php) [![Latest Stable Version](https://poser.pugx.org/masterminds/html5/v/stable.png)](https://packagist.org/packages/masterminds/html5) [![Coverage Status](https://coveralls.io/repos/Masterminds/html5-php/badge.png?branch=master)](https://coveralls.io/r/Masterminds/html5-php?branch=master)
 
@@ -22,12 +23,12 @@ To install, add `masterminds/html5` to your `composer.json` file:
 ```
 {
   "require" : {
-    "masterminds/html5": "1.*"
+    "masterminds/html5": "2.*"
   },
 }
 ```
 
-(You may substitute `1.*` for a more specific release tag, of
+(You may substitute `2.*` for a more specific release tag, of
 course.)
 
 From there, use the `composer install` or `composer update` commands to
@@ -43,6 +44,7 @@ Here is how you use the high-level `HTML5` library API:
 <?php
 // Assuming you installed from Composer:
 require "vendor/autoload.php";
+use Masterminds\HTML5;
 
 
 // An example HTML document:
@@ -59,13 +61,14 @@ $html = <<< 'HERE'
 HERE;
 
 // Parse the document. $dom is a DOMDocument.
-$dom = HTML5::loadHTML($html);
+$html5 = new HTML5();
+$dom = $html5->loadHTML($html);
 
 // Render it as HTML5:
-print HTML5::saveHTML($dom);
+print $html5->saveHTML($dom);
 
 // Or save it to a file:
-HTML5::save($dom, 'out.html');
+$html5->save($dom, 'out.html');
 
 ?>
 ```
@@ -73,6 +76,35 @@ HTML5::save($dom, 'out.html');
 The `$dom` created by the parser is a full `DOMDocument` object. And the
 `save()` and `saveHTML()` methods will take any DOMDocument.
 
+### Options
+
+It is possible to pass in an array of configuration options when loading
+an HTML5 document.
+
+```php
+// An associative array of options
+$options = array(
+  'option_name' => 'option_value',
+);
+
+// Provide the options to the constructor
+$html5 = new HTML5($options);
+
+$dom = $html5->loadHTML($html);
+```
+
+The following options are supported:
+
+* `encode_entities` (boolean): Indicates that the serializer should aggressively
+  encode characters as entities. Without this, it only encodes the bare
+  minimum.
+* `disable_html_ns` (boolean): Prevents the parser from automatically
+  assigning the HTML5 namespace to the DOM document. This is for
+  non-namespace aware DOM tools.
+* `target_document` (\DOMDocument): A DOM document that will be used as the
+  destination for the parsed nodes.
+* `implicit_namespaces` (array): An assoc array of namespaces that should be
+  used by the parser. Name is tag prefix, value is NS URI.
 
 ## The Low-Level API
 
@@ -116,7 +148,7 @@ different rule sets to be used.
 - The `Traverser`, which is a special-purpose tree walker. It visits
 each node node in the tree and uses the `OutputRules` to transform the node
 into a string.
-- `\HTML5` manages the `Traverser` and stores the resultant data
+- `HTML5` manages the `Traverser` and stores the resultant data
 in the correct place.
 
 The serializer (`save()`, `saveHTML()`) follows the 
@@ -134,7 +166,9 @@ issues known issues that are not presently on the roadmap:
 
 - Namespaces: HTML5 only [supports a selected list of namespaces](http://www.w3.org/TR/html5/infrastructure.html#namespaces)
   and they do not operate in the same way as XML namespaces. A `:` has no special
-  meaning. The parser does not support XML style namespaces via `:`.
+  meaning. 
+  By default the parser does not support XML style namespaces via `:`; 
+  to enable the XML namespaces see the  [XML Namespaces section](#xml-namespaces)
 - Scripts: This parser does not contain a JavaScript or a CSS
   interpreter. While one may be supplied, not all features will be
   supported.
@@ -162,7 +196,44 @@ issues known issues that are not presently on the roadmap:
 - PLAINTEXT: Unsupported.
 - Adoption Agency Algorithm: Not yet implemented. (8.2.5.4.7)
 
+##XML Namespaces
+
+To use XML style namespaces you have to configure well the main `HTML5` instance.
+
+```php
+use Masterminds\HTML5;
+$html = new HTML5(array(
+    "xmlNamespaces" => true
+));
+
+$dom = $html->loadHTML('<t:tag xmlns:t="http://www.example.com"/>');
+
+$dom->documentElement->namespaceURI; // http://www.example.com
+
+```
+
+You can also add some default prefixes that will not require the namespace declaration,
+but it's elements will be namespaced.
+
+```php
+use Masterminds\HTML5;
+$html = new HTML5(array(
+    "implicitNamespaces"=>array(
+        "t"=>"http://www.example.com"
+    )
+));
+
+$dom = $html->loadHTML('<t:tag/>');
+
+$dom->documentElement->namespaceURI; // http://www.example.com
+
+```
+
 ## Thanks to...
+
+The dedicated (and patient) contributors of patches small and large,
+who have already made this library better.See the CREDITS file for
+a list of contributors.
 
 We owe a huge debt of gratitude to the original authors of html5lib.
 

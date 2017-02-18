@@ -1,8 +1,8 @@
 <?php
 
 /*
-htmLawed 1.1.17, 11 March 2014
-OOP code, 11 March 2014
+htmLawed 1.1.19, 19 January 2015
+OOP code, 19 January 2015
 Copyright Santosh Patnaik
 Dual LGPL v3 and GPL v2+ license
 A PHP Labware internal utility; www.bioinformatics.org/phplabware/internal_utilities/htmLawed
@@ -478,7 +478,7 @@ while(strlen($a)){
   break; case 2: // Val
    if(preg_match('`^((?:"[^"]*")|(?:\'[^\']*\')|(?:\s*[^\s"\']+))(.*)`', $a, $m)){
     $a = ltrim($m[2]); $m = $m[1]; $w = 1; $mode = 0;
-    $aA[$nm] = trim(($m[0] == '"' or $m[0] == '\'') ? substr($m, 1, -1) : $m);
+    $aA[$nm] = trim(str_replace('<', '&lt;', ($m[0] == '"' or $m[0] == '\'') ? substr($m, 1, -1) : $m));
    }
   break;
  }
@@ -507,7 +507,7 @@ foreach($aA as $k=>$v){
    $v = preg_replace_callback('`(url(?:\()(?: )*(?:\'|"|&(?:quot|apos);)?)(.+?)((?:\'|"|&(?:quot|apos);)?(?: )*(?:\)))`iS', 'htmLawed::hl_prot', $v);
    $v = !$C['css_expression'] ? preg_replace('`expression`i', ' ', preg_replace('`\\\\\S|(/|(%2f))(\*|(%2a))`i', ' ', $v)) : $v;
   }elseif(isset($aNP[$k]) or strpos($k, 'src') !== false or $k[0] == 'o'){
-   $v = str_replace("\xad", ' ', (strpos($v, '&') !== false ? str_replace(array('&#xad;', '&#173;', '&shy;'), ' ', $v) : $v));
+   $v = str_replace("­", ' ', (strpos($v, '&') !== false ? str_replace(array('&#xad;', '&#173;', '&shy;'), ' ', $v) : $v)); # double-quoted char is soft-hyphen; appears here as "­" or hyphen or something else depending on viewing software
    $v = htmLawed::hl_prot($v, $k);
    if($k == 'href'){ // X-spam
     if($C['anti_mail_spam'] && strpos($v, 'mailto:') === 0){
@@ -701,7 +701,7 @@ return str_replace(array("\x01", "\x02", "\x03", "\x04", "\x05", "\x07"), array(
 
 public static function hl_version(){
 // rel
-return '1.1.17';
+return '1.1.19';
 // eof
 }
 

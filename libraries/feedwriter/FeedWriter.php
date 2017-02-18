@@ -1,7 +1,7 @@
 <?php
-define('RSS2', 1, true);
-define('JSON', 2, true);
-define('JSONP', 3, true);
+define('RSS2', 1);
+define('JSON', 2);
+define('JSONP', 3);
 
  /**
  * Univarsel Feed Writer class
@@ -131,6 +131,11 @@ define('JSONP', 3, true);
 				$simplejson->language = null;
 				$simplejson->url = null;
 				$simplejson->effective_url = null;
+				$simplejson->og_url = null;
+				$simplejson->og_title = null;
+				$simplejson->og_description = null;
+				$simplejson->og_image = null;
+				$simplejson->og_type = null;
 				$simplejson->content = null;
 				// actual values
 				$simplejson->url = $jsonitem->link;
@@ -151,6 +156,11 @@ define('JSONP', 3, true);
 				if (isset($jsonitem->pubDate)) {
 					$simplejson->date = gmdate(DATE_ATOM, strtotime($jsonitem->pubDate));
 				}
+				if (isset($jsonitem->og_url)) $simplejson->og_url = $jsonitem->og_url;
+				if (isset($jsonitem->og_title)) $simplejson->og_title = $jsonitem->og_title;
+				if (isset($jsonitem->og_description)) $simplejson->og_description = $jsonitem->og_description;
+				if (isset($jsonitem->og_image)) $simplejson->og_image = $jsonitem->og_image;
+				if (isset($jsonitem->og_type)) $simplejson->og_type = $jsonitem->og_type;
 				echo json_encode($simplejson);
 			}
 		}
@@ -327,7 +337,7 @@ define('JSONP', 3, true);
 		{
 			$out  = '<?xml version="1.0" encoding="utf-8"?>'."\n";
 			if ($this->xsl) $out .= '<?xml-stylesheet type="text/xsl" href="'.htmlspecialchars($this->xsl).'"?>' . PHP_EOL;
-			$out .= '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/">' . PHP_EOL;
+			$out .= '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/" xmlns:og="http://ogp.me/ns#">' . PHP_EOL;
 			echo $out;
 		}
 		elseif ($this->version == JSON || $this->version == JSONP)
@@ -370,7 +380,9 @@ define('JSONP', 3, true);
 			{
 				foreach ($attributes as $key => $value) 
 				{
-					$attrText .= " $key=\"".htmlspecialchars($value, ENT_COMPAT, 'UTF-8', false)."\" ";
+					//$attrText .= " $key=\"".htmlspecialchars($value, ENT_COMPAT, 'UTF-8', false)."\" ";
+					// TODO: replace HTML entities not supported in XML with UTF8 equivalent characters
+					$attrText .= " $key=\"".htmlspecialchars($value, ENT_COMPAT, 'UTF-8')."\" ";
 				}
 			}
 			$nodeText .= "<{$tagName}{$attrText}>";
@@ -384,7 +396,9 @@ define('JSONP', 3, true);
 			else
 			{
 				//$nodeText .= (in_array($tagName, $this->CDATAEncoding))? $tagContent : htmlentities($tagContent);
-				$nodeText .= htmlspecialchars($tagContent, ENT_COMPAT, 'UTF-8', false);
+				//$nodeText .= htmlspecialchars($tagContent, ENT_COMPAT, 'UTF-8', false);
+				// TODO: replace HTML entities not supported in XML with UTF8 equivalent characters
+				$nodeText .= htmlspecialchars($tagContent, ENT_COMPAT, 'UTF-8');
 			}           
 			//$nodeText .= (in_array($tagName, $this->CDATAEncoding))? "]]></$tagName>" : "</$tagName>";
 			$nodeText .= "</$tagName>";

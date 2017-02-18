@@ -430,22 +430,6 @@ $options->fingerprints = array(
 	'<meta name="generator" content="WordPress' => array('hostname'=>'fingerprint.wordpress.com', 'head'=>true)
 );
 
-// User Agent strings - mapping domain names
-// ----------------------
-// e.g. $options->user_agents = array('example.org' => 'PHP/5.2');
-$options->user_agents = array( 'lifehacker.com' => 'PHP/5.2',
-							   'gawker.com' => 'PHP/5.2',
-							   'deadspin.com' => 'PHP/5.2',
-							   'kotaku.com' => 'PHP/5.2',
-							   'jezebel.com' => 'PHP/5.2',
-							   'io9.com' => 'PHP/5.2',
-							   'jalopnik.com' => 'PHP/5.2',
-							   'gizmodo.com' => 'PHP/5.2',
-							   '.wikipedia.org' => 'Mozilla/5.2',
-							   '.fok.nl' => 'Googlebot/2.1',
-							   'getpocket.com' => 'PHP/5.2'
-							  );
-
 // URL Rewriting
 // ----------------------
 // Currently allows simple string replace of URLs.
@@ -500,7 +484,7 @@ $options->cache_cleanup = 100;
 /// DO NOT CHANGE ANYTHING BELOW THIS ///////////
 /////////////////////////////////////////////////
 
-if (!defined('_FF_FTR_VERSION')) define('_FF_FTR_VERSION', '3.4');
+if (!defined('_FF_FTR_VERSION')) define('_FF_FTR_VERSION', '3.5');
 
 if (basename(__FILE__) == 'config.php') {
 	if (file_exists(dirname(__FILE__).'/custom_config.php')) {
