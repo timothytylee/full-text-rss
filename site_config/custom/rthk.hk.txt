@@ -1,0 +1,4 @@
+title: //div[@class='itemHeader']
+date: //div[@class='createddate']
+body: //div[@class='itemBody']
+strip: //div[@class='itemSocialSharing']
