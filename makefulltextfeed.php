@@ -978,9 +978,11 @@ foreach ($items as $key => $item) {
 	}
 
 	// add open graph
-	if ($opengraph = $extractor->getOpenGraph()) {
-		foreach ($opengraph as $og_prop => $og_val) {
-			$newitem->addElement($og_prop, $og_val);
+	if ($options->opengraph === true) {
+		if ($opengraph = $extractor->getOpenGraph()) {
+			foreach ($opengraph as $og_prop => $og_val) {
+				$newitem->addElement($og_prop, $og_val);
+			}
 		}
 	}
 	
