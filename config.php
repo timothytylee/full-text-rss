@@ -519,6 +519,12 @@ $options->cache_directory_level = 0;
 // ...you get the idea :)
 $options->cache_cleanup = 100;
 
+// Open Graph properties
+// ---------------------
+// By default Full-Text RSS includes Open Graph properties in the output.
+// Set this to false if you do not want to include Open Graph properties.
+$options->opengraph = true;
+
 /////////////////////////////////////////////////
 /// DO NOT CHANGE ANYTHING BELOW THIS ///////////
 /////////////////////////////////////////////////

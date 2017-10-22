@@ -1030,9 +1030,11 @@ foreach ($items as $key => $item) {
 	}
 
 	// add open graph
-	if ($opengraph = $extractor->getOpenGraph()) {
-		foreach ($opengraph as $_prop => $_val) {
-			$newitem->addElement($_prop, $_val);
+	if ($options->opengraph === true) {
+		if ($opengraph = $extractor->getOpenGraph()) {
+			foreach ($opengraph as $_prop => $_val) {
+				$newitem->addElement($_prop, $_val);
+			}
 		}
 	}
 	// add Twitter Card
