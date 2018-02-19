@@ -1,2 +1,4 @@
 title: //h1
 body: //article
+strip: //picture/source
+replace_string(srcset=): src=
