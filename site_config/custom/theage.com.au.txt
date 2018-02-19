@@ -1,6 +1,2 @@
-title: //h1[@itemprop='name headline']
-date: //div[@itemprop='datePublished']
-body: //div[@itemprop='articleBody']
-strip: //div[@id='subscribe-newsletter']
-strip: //div[@class='video__overlay']
-strip: //div[contains(@class,'panel--video-playlist')]
+title: //h1
+body: //article
