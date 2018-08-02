@@ -5,3 +5,4 @@ strip: //div[@class='itemSocialSharing']
 strip: //li[not(a)]
 strip: //img[@class='loadingImg']
 strip: //a[contains(@class,'unslider-arrow')]
+replace_regex(<!-- videoThumbnail&colon; (.*) -->): <img src="$1">
