@@ -103,6 +103,11 @@ class SiteConfig
 	// Strings to replace those found in $find_string before HTML processing begins
 	public $replace_string = array();
 	
+	// Regular expressions to search for in HTML before processing begins (used with $replace_regex)
+	public $find_regex = array();
+	// Strings to replace those found in $find_regex before HTML processing begins
+	public $replace_regex = array();
+	
 	// the options below cannot be set in the config files which this class represents
 	
 	//public $cache_in_apc = false; // used to decide if we should cache in apc or not
@@ -256,7 +261,7 @@ class SiteConfig
 			if ($this->$var === null) $this->$var = $newconfig->$var;
 		}
 		// treat find_string and replace_string separately (don't apply array_unique) (thanks fabrizio!)
-		foreach (array('find_string', 'replace_string') as $var) {
+		foreach (array('find_string', 'replace_string', 'find_regex', 'replace_regex') as $var) {
 			// append array elements for this config variable from $newconfig to this config
 			//$this->$var = $this->$var + $newconfig->$var;
 			$this->$var = array_merge($this->$var, $newconfig->$var);
@@ -433,7 +438,7 @@ class SiteConfig
 			if ($command == 'strip_attr') $command = 'strip';
 
 			// check for commands where we accept multiple statements
-			if (in_array($command, array('title', 'body', 'author', 'date', 'strip', 'strip_id_or_class', 'strip_image_src', 'single_page_link', 'single_page_link_in_feed', 'next_page_link', 'native_ad_clue', 'http_header', 'test_url', 'find_string', 'replace_string'))) {
+			if (in_array($command, array('title', 'body', 'author', 'date', 'strip', 'strip_id_or_class', 'strip_image_src', 'single_page_link', 'single_page_link_in_feed', 'next_page_link', 'native_ad_clue', 'http_header', 'test_url', 'find_string', 'replace_string', 'find_regex', 'replace_regex'))) {
 				array_push($config->$command, $val);
 			// check for single statement commands that evaluate to true or false
 			} elseif (in_array($command, array('tidy', 'prune', 'autodetect_on_failure', 'insert_detected_image'))) {
@@ -450,8 +455,11 @@ class SiteConfig
 			// check for replace_string(find): replace
 			} elseif ((substr($command, -1) == ')') && preg_match('!^([a-z0-9_]+)\((.*?)\)$!i', $command, $match)) {
 				if (in_array($match[1], array('replace_string'))) {
-					array_push($config->find_string, $match[2]);
-					array_push($config->replace_string, $val);
+					array_push($config->find_string, str_replace('&colon;', ':', $match[2]));
+					array_push($config->replace_string, str_replace('&colon;', ':', $val));
+				} elseif (in_array($match[1], array('replace_regex'))) {
+					array_push($config->find_regex, '/' . str_replace('&colon;', ':', $match[2]) . '/');
+					array_push($config->replace_regex, str_replace('&colon;', ':', $val));
 				} elseif (in_array($match[1], array('http_header'))) {
 					$_header = strtolower(trim($match[2]));
 					$config->http_header[$_header] = $val;

@@ -165,6 +165,17 @@ class ContentExtractor
 			unset($_count);
 		}
 		
+		// do regular expression replacements
+		if (!empty($this->config->find_regex)) {
+			if (count($this->config->find_regex) == count($this->config->replace_regex)) {
+				$html = preg_replace($this->config->find_regex, $this->config->replace_regex, $html, -1, $_count);
+				$this->debug("Regular expressions replaced: $_count (find_regex and/or replace_regex)");
+			} else {
+				$this->debug('Skipped regular expressions replacement - incorrect number of find-replace patterns in site config');
+			}
+			unset($_count);
+		}
+		
 		// load and parse html
 		if ($this->parserOverride) {
 			// from querystring: &parser=xxx
