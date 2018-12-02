@@ -1,3 +1,5 @@
 title: //article/header
 body: //article/div[@class='content']
 next_page_link: //a[contains(text(), 'Next Page')]
+replace_string(<noscript>): <div>
+replace_string(</noscript>): </div>
