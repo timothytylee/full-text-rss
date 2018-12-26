@@ -1,5 +1,4 @@
 title: //article/header
 body: //article/div[@class='content']
 next_page_link: //a[contains(text(), 'Next Page')]
-replace_string(<noscript>): <div>
-replace_string(</noscript>): </div>
+replace_regex((<div[^>]*>)<script[^>]*><\/script><noscript><a[^>]*>(<img[^>]*\/>)<\/a><\/noscript>(<\/div>)): $1$2$3
