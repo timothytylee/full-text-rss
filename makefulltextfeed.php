@@ -636,7 +636,7 @@ if (_FF_FTR_MODE === 'simple') $output->enableSimpleJson();
 //echo $feed_title; exit;
 $output->setTitle(strip_tags($feed->get_title()));
 $output->setDescription(strip_tags($feed->get_description()));
-$output->setXsl('css/feed.xsl'); // Chrome uses this, most browsers ignore it
+//$output->setXsl('css/feed.xsl'); // Chrome uses this, most browsers ignore it
 $ttl = $feed->get_channel_tags(SIMPLEPIE_NAMESPACE_RSS_20, 'ttl');
 if ($ttl !== null) {
 	$ttl = (int)$ttl[0]['data'];
