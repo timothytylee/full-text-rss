@@ -1254,7 +1254,11 @@ function get_self_url() {
 function validate_url($url) {
 	if (function_exists('idn_to_ascii')) {
 		if ($host = @parse_url($url, PHP_URL_HOST)) {
-			$puny = idn_to_ascii($host, 0, INTL_IDNA_VARIANT_UTS46);
+			if (defined('INTL_IDNA_VARIANT_UTS46')) {
+				$puny = idn_to_ascii($host, 0, INTL_IDNA_VARIANT_UTS46);
+			} else {
+				$puny = idn_to_ascii($host);
+			}
 			if ($host != $puny) {
 				$pos = strpos($url, $host);
 				if ($pos !== false) {

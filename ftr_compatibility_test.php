@@ -33,6 +33,7 @@ $allow_url_fopen_ok = (bool)ini_get('allow_url_fopen');
 $filter_ok = extension_loaded('filter');
 $gumbo_ok = class_exists('Layershifter\Gumbo\Parser');
 $idn_ok = function_exists('idn_to_ascii');
+$dom_ok = extension_loaded('DOM');
 
 if (extension_loaded('xmlreader')) {
 	$xml_ok = true;
@@ -257,7 +258,12 @@ div.chunk {
 						<td><a href="http://www.php.net/manual/en/filesystem.configuration.php#ini.allow-url-fopen">allow_url_fopen</a></td>
 						<td>Enabled</td>
 						<td><?php echo ($allow_url_fopen_ok) ? 'Enabled' : 'Disabled'; ?></td>
-					</tr>						
+					</tr>
+					<tr class="<?php echo ($dom_ok) ? 'enabled' : 'disabled'; ?>">
+						<td><a href="http://php.net/manual/en/book.dom.php">DOM / XML extension</a></td>
+						<td>Enabled</td>
+						<td><?php echo ($dom_ok) ? 'Enabled' : 'Disabled'; ?></td>
+					</tr>	
 				</tbody>
 			</table>
 		</div>
@@ -265,7 +271,7 @@ div.chunk {
 		<div class="chunk">
 			<h3>What does this mean?</h3>
 			<ol>
-				<?php if ($php_ok && $xml_ok && $pcre_ok && $mbstring_ok && $iconv_ok && $filter_ok && $zlib_ok && $tidy_ok && $curl_ok && $parallel_ok && $allow_url_fopen_ok): ?>
+				<?php if ($php_ok && $xml_ok && $pcre_ok && $dom_ok && $mbstring_ok && $iconv_ok && $filter_ok && $zlib_ok && $tidy_ok && $curl_ok && $parallel_ok && $allow_url_fopen_ok): ?>
 				<li>You have everything you need to run <?php echo $app_name; ?> properly!  Congratulations!</li>
 				<?php else: ?>
 					<?php if ($php_ok): ?>

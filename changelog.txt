@@ -2,6 +2,10 @@ FiveFilters.org: Full-Text RSS
 http://fivefilters.org/content-only/
 CHANGELOG
 ------------------------------------
+3.8.1 (2017-10-31)
+ - Bug fix: Systems with old ICU library produced an idn_to_ascii() error
+ - Compatibility test file updated to check for DOM extension
+
 3.8 (2017-09-25)
  - New site config directive: strip_attr: XPath attribute selector (e.g. //img/@srcset) - remove attribute from element
  - New site config directive: insert_detected_image: yes/no (default yes) - places image in og:image in the body if no other images extracted
