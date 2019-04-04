@@ -1,9 +1,6 @@
-# Puppet file intended to install server componenets for self-hosted FiveFilters.org web services
+# Puppet file intended to install server componenets for FiveFilters.org web services
 # This file is intended for base images of:
-# Ubuntu 15.10
-
-# Please see here for more information on how to use this: 
-# http://help.fivefilters.org/customer/en/portal/articles/1143210-hosting
+# Ubuntu 16.04
 
 Exec { path => "/bin:/usr/bin:/usr/local/bin" }
 
@@ -31,6 +28,10 @@ class init {
 APT::Periodic::Unattended-Upgrade "1";',
 		require => Package["unattended-upgrades"]
 	}
+	#exec { "configure-unattended-upgrades":
+	#	require => Package["unattended-upgrades"],
+	#	command => "sudo dpkg-reconfigure unattended-upgrades",
+	#}
 }
 
 # make sure apt-update run before package
@@ -56,6 +57,11 @@ class apache {
 		require => Package["apache2"],
 		notify => Exec["restart-apache"]
 	}
+	
+	exec { "enable-prefork":
+		require => Package["apache2"],
+		command => "sudo a2dismod mpm_event && sudo a2enmod mpm_prefork",
+	}	
 
 	file { "/etc/apache2/sites-available/fivefilters.conf":
 		ensure => present,
@@ -104,24 +110,34 @@ class apache {
 }
 
 class php {
-	package { "php5": ensure => latest }
-	package { "libapache2-mod-php5": ensure => latest }
-	package { "php5-cli": ensure => latest }
-	package { "php5-tidy": ensure => latest }
-	package { "php5-curl": ensure => latest }
-	package { "libcurl4-gnutls-dev": ensure => latest }
+	package { "php7.0": ensure => latest }
+	#package { "php-apc": ensure => latest }
+	package { "libapache2-mod-php7.0": ensure => latest }
+	package { "php7.0-cli": ensure => latest }
+	package { "php7.0-tidy": ensure => latest }
+	package { "php7.0-curl": ensure => latest }
+	#package { "libcurl4-gnutls-dev": ensure => latest }
+	package { "libcurl4-openssl-dev": ensure => latest }
 	package { "libpcre3-dev": ensure => latest }
 	package { "make": ensure=>latest }
 	package { "php-pear": ensure => latest }
-	package { "php5-dev": ensure => latest }
-	package { "php5-intl": ensure => latest }
-	package { "php5-gd": ensure => latest }
-	package { "php5-imagick": ensure => latest }
-	package { "php5-json": ensure => latest }
+	package { "php7.0-dev": ensure => latest }
+	package { "php7.0-intl": ensure => latest }
+	package { "php7.0-gd": ensure => latest }
+	package { "php7.0-mbstring": ensure => latest }
+	package { "php-imagick": ensure => latest }
+	package { "php7.0-json": ensure => latest }
 	#package { "php-http": ensure => latest }
-	package { "php5-raphf": ensure => latest }
-	package { "php5-propro": ensure => latest }
-	file { "/etc/php5/mods-available/fivefilters-php.ini":
+	package { "php-raphf": ensure => latest }
+	package { "php-propro": ensure => latest }
+	package { "php7.0-zip": ensure => latest }
+	# for gumbo-php
+	package { "libgumbo1": ensure => latest }
+	package { "libgumbo-dev": ensure => latest }
+	package { "libxml2": ensure => latest }
+	package { "libxml2-dev": ensure => latest }
+
+	file { "/etc/php/7.0/mods-available/fivefilters-php.ini":
 		ensure => present,
 		content => "engine = On
 		expose_php = Off
@@ -134,17 +150,17 @@ class php {
 		default_socket_timeout = 120
 		file_uploads = Off
 		date.timezoe = 'UTC'",
-		require => Package["php5"],
+		require => Package["php7.0"],
 		before => Exec["enable-fivefilters-php"],
 	}
 	exec { "enable-fivefilters-php":
-		command => "sudo php5enmod fivefilters-php",
+		command => "sudo phpenmod fivefilters-php",
 	}	
 }
 
 class php_pecl_http {
   # Important: this file needs to be in place before we install the HTTP extension
-	file { "/etc/php5/mods-available/http.ini":
+	file { "/etc/php/7.0/mods-available/http.ini":
 		ensure => present,
 		#owner => root, group => root, mode => 444,
 		content => "; priority=25
@@ -156,7 +172,7 @@ extension=http.so",
 	}
 
 	exec { "enable-http":
-		command => "sudo php5enmod http",
+		command => "sudo phpenmod http",
 		require => Class["php"],
 	}
 	
@@ -171,10 +187,9 @@ extension=http.so",
 	}
 
 	exec { "install-http-pecl":
-		command => "pecl install https://pecl.php.net/get/pecl_http-2.5.5.tgz",
-		#command => "sudo pecl install pecl_http",
-		# the above is now version 3.0 - requires PHP7
-		#command => "pecl install http://pecl.php.net/get/pecl_http-1.7.6.tgz",
+		# For some reason this command doesn't return a success code, even though 
+		# it appears to succeed. So we use || /bin/true
+		command => "sudo pecl install channel://pecl.php.net/pecl_http-3.1.0.tgz || /bin/true",
 		#creates => "/tmp/needed/directory",
 		require => Exec["enable-http"]
 	}
@@ -182,12 +197,12 @@ extension=http.so",
 
 class php_pecl_apcu {
 	exec { "install-apcu-pecl":
-		command => "sudo pecl install channel://pecl.php.net/APCu-4.0.10",
+		command => "sudo pecl install channel://pecl.php.net/APCu-5.1.8",
 		#creates => "/tmp/needed/directory",
 		require => Class["php"]
 	}
 
-	file { "/etc/php5/mods-available/apcu.ini":
+	file { "/etc/php/7.0/mods-available/apcu.ini":
 		ensure => present,
 		#owner => root, group => root, mode => 444,
 		content => "extension=apcu.so",
@@ -195,63 +210,66 @@ class php_pecl_apcu {
 		before => Exec["enable-apcu"]
 	}
 	exec { "enable-apcu":
-		command => "sudo php5enmod apcu",
+		command => "sudo phpenmod apcu",
 		notify => Exec["restart-apache"],
 	}
 }
 
-class php_cld {
-	# see https://github.com/lstrojny/php-cld
+class php_gumbo {
+	# see https://github.com/layershifter/gumbo-php
 	package { "git": ensure => latest }
-	
 	package { "build-essential": ensure => latest }
 	
-	file { "/tmp/cld":
+	file { "/tmp/gumbo":
 		ensure => absent,
-		before => Exec["download-cld"],
+		before => Exec["download-gumbo"],
 		recurse => true,
 		force => true
 	}
 	
-	exec { "download-cld":
-		command => "git clone git://github.com/lstrojny/php-cld.git /tmp/cld",
-		require => [Package["git"], Class["php"]],
-		before => Exec["build-cld"]
+	exec { "download-gumbo":
+		command => "git clone git://github.com/layershifter/gumbo-php.git /tmp/gumbo",
+		require => [Package["git"], Class["php"]]
 	}
 	
-	exec { "checkout-cld-version":
-		# recent version does not work, so we switch to an older one
-		command => "git reset --hard fd5aa5721b01bfe547ff6674fa0daa9c3b791ca3",
-		cwd => "/tmp/cld",
-		require => Exec["download-cld"],
-		before => Exec["build-cld"]
-	}
-	
-	exec { "build-cld":
-		command => "./build.sh",
-		#new cld:command => "sh compile_libs.sh",
-		cwd => "/tmp/cld/vendor/libcld",
-		require => Package["build-essential"],
-		provider => "shell"
-	}
-	
-	exec { "install-cld-extension":
-		command => "phpize && ./configure --with-libcld-dir=/tmp/cld/vendor/libcld && make && sudo make install",
-		cwd => "/tmp/cld",
+	exec { "install-gumbo-extension":
+		command => "phpize && ./configure && make && sudo make install",
+		cwd => "/tmp/gumbo",
 		provider => "shell",
-		require => Exec["build-cld"]
+		require => Exec["download-gumbo"]
 	}
 
-	file { "/etc/php5/mods-available/cld.ini":
+	file { "/etc/php/7.0/mods-available/gumbo.ini":
 		ensure => present,
 		#owner => root, group => root, mode => 444,
-		content => "extension=cld.so",
-		require => Exec["install-cld-extension"],
-		before => Exec["enable-cld"],
+		content => "extension=gumbo.so",
+		require => Exec["install-gumbo-extension"],
+		before => Exec["enable-gumbo"]
 	}
 
-	exec { "enable-cld":
-		command => "sudo php5enmod cld",
+	exec { "enable-gumbo":
+		command => "sudo phpenmod gumbo",
+		notify => Exec["restart-apache"],
+		require => Exec["install-gumbo-extension"]
+	}
+}
+
+class php_pecl_apc_bc {
+	exec { "install-apc-bc-pecl":
+		command => "sudo pecl install channel://pecl.php.net/apcu_bc-1.0.3",
+		#creates => "/tmp/needed/directory",
+		require => Class["php_pecl_apcu"]
+	}
+
+	file { "/etc/php/7.0/mods-available/z_apc_bc.ini":
+		ensure => present,
+		#owner => root, group => root, mode => 444,
+		content => "extension=apc.so",
+		require => Exec["install-apc-bc-pecl"],
+		before => Exec["enable-apc-bc"]
+	}
+	exec { "enable-apc-bc":
+		command => "sudo phpenmod z_apc_bc",
 		notify => Exec["restart-apache"],
 	}
 }
@@ -261,12 +279,17 @@ class final {
 		command => "echo 'vm.swappiness = 10' >> /etc/sysctl.conf && sudo sysctl -p",
 		provider => "shell"
 	}
+	exec { "enable-php":
+		command => "sudo a2enmod php7.0 && sudo service apache2 restart",
+		provider => "shell"
+	}
 }
 
 include init
 include apache
 include php
 include php_pecl_apcu
-include php_cld
+include php_pecl_apc_bc
 include php_pecl_http
+include php_gumbo
 include final

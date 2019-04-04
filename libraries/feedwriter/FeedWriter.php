@@ -81,7 +81,7 @@ define('JSONP', 3);
 	*/
 	public function setChannelElementsFromArray($elementArray)
 	{
-		if(! is_array($elementArray)) return;
+		if(!is_array($elementArray)) return;
 		foreach ($elementArray as $elementName => $content) 
 		{
 			$this->setChannelElement($elementName, $content);
@@ -131,19 +131,33 @@ define('JSONP', 3);
 				$simplejson->language = null;
 				$simplejson->url = null;
 				$simplejson->effective_url = null;
+				$simplejson->domain = null;
+				$simplejson->word_count = null;
 				$simplejson->og_url = null;
 				$simplejson->og_title = null;
 				$simplejson->og_description = null;
 				$simplejson->og_image = null;
 				$simplejson->og_type = null;
+				$simplejson->twitter_card = null;
+				$simplejson->twitter_site = null;
+				$simplejson->twitter_creator = null;
+				$simplejson->twitter_image = null;
+				$simplejson->twitter_title = null;
+				$simplejson->twitter_description = null;
 				$simplejson->content = null;
 				// actual values
 				$simplejson->url = $jsonitem->link;
 				$simplejson->effective_url = $jsonitem->dc_identifier;
+				$simplejson->domain = strtolower(@parse_url($simplejson->effective_url, PHP_URL_HOST));
+				if (substr($simplejson->domain, 0, 4) === 'www.') {
+					$simplejson->domain = substr($simplejson->domain, 4);
+				}
 				if (isset($jsonitem->title)) $simplejson->title = $jsonitem->title;
 				if (isset($jsonitem->dc_language)) $simplejson->language = $jsonitem->dc_language;
 				if (isset($jsonitem->content_encoded)) {
 					$simplejson->content = $jsonitem->content_encoded;
+					// from http://php.net/manual/en/function.str-word-count.php#107363
+					$simplejson->word_count = count(preg_split('!\s+!', strip_tags($simplejson->content), -1, PREG_SPLIT_NO_EMPTY));
 					if (isset($jsonitem->description)) {
 						$simplejson->excerpt = $jsonitem->description;
 					}
@@ -161,6 +175,12 @@ define('JSONP', 3);
 				if (isset($jsonitem->og_description)) $simplejson->og_description = $jsonitem->og_description;
 				if (isset($jsonitem->og_image)) $simplejson->og_image = $jsonitem->og_image;
 				if (isset($jsonitem->og_type)) $simplejson->og_type = $jsonitem->og_type;
+				if (isset($jsonitem->twitter_card)) $simplejson->twitter_card = $jsonitem->twitter_card;
+				if (isset($jsonitem->twitter_site)) $simplejson->twitter_site = $jsonitem->twitter_site;
+				if (isset($jsonitem->twitter_creator)) $simplejson->twitter_creator = $jsonitem->twitter_creator;
+				if (isset($jsonitem->twitter_image)) $simplejson->twitter_image = $jsonitem->twitter_image;
+				if (isset($jsonitem->twitter_title)) $simplejson->twitter_title = $jsonitem->twitter_title;
+				if (isset($jsonitem->twitter_description)) $simplejson->twitter_description = $jsonitem->twitter_description;
 				echo json_encode($simplejson);
 			}
 		}
@@ -337,7 +357,8 @@ define('JSONP', 3);
 		{
 			$out  = '<?xml version="1.0" encoding="utf-8"?>'."\n";
 			if ($this->xsl) $out .= '<?xml-stylesheet type="text/xsl" href="'.htmlspecialchars($this->xsl).'"?>' . PHP_EOL;
-			$out .= '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/" xmlns:og="http://ogp.me/ns#">' . PHP_EOL;
+			//$out .= '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/" xmlns:og="http://ogp.me/ns#" xmlns:twitter="https://dev.twitter.com/cards/markup">' . PHP_EOL;
+				$out .= '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/">' . PHP_EOL;
 			echo $out;
 		}
 		elseif ($this->version == JSON || $this->version == JSONP)
@@ -495,6 +516,9 @@ define('JSONP', 3);
 			foreach ($itemElements as $thisElement) {
 				foreach ($thisElement as $instance) {			
 					if ($this->version == RSS2) {
+						// Let's not include twitter and open graph elements in regular RSS output
+						// These are aimed more at developers, and so JSON is more appropriate
+						if (preg_match('/^(twitter|og):/i', $instance['name'])) continue;
 						echo $this->makeNode($instance['name'], $instance['content'], $instance['attributes']);
 					} elseif ($this->version == JSON || $this->version == JSONP) {
 						$_json_node = $this->makeNode($instance['name'], $instance['content'], $instance['attributes']);

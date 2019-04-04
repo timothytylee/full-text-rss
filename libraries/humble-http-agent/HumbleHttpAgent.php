@@ -7,11 +7,11 @@
  * For environments which do not have these options, it reverts to standard sequential 
  * requests (using file_get_contents())
  * 
- * @version 1.6
- * @date 2015-06-05
+ * @version 1.7
+ * @date 2016-11-28
  * @see http://devel-m6w6.rhcloud.com/mdref/http
  * @author Keyvan Minoukadeh
- * @copyright 2011-2015 Keyvan Minoukadeh
+ * @copyright 2011-2016 Keyvan Minoukadeh
  * @license http://www.gnu.org/licenses/agpl-3.0.html AGPL v3
  */
 
@@ -21,8 +21,8 @@ class HumbleHttpAgent
 	const METHOD_CURL_MULTI = 2;
 	const METHOD_FILE_GET_CONTENTS = 4;
 	//const UA_BROWSER = 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:2.0.1) Gecko/20100101 Firefox/4.0.1';
-	const UA_BROWSER = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.2 (KHTML, like Gecko) Chrome/15.0.874.92 Safari/535.2';
-	const UA_PHP = 'PHP/5.5';
+	const UA_BROWSER = 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.71 Safari/537.36';
+	const UA_PHP = 'PHP/5.6';
 	const REF_GOOGLE = 'http://www.google.co.uk/url?sa=t&source=web&cd=1';
 	
 	protected $requests = array();
@@ -103,20 +103,26 @@ class HumbleHttpAgent
 				)
 			);
 		// HTTP cURL
-		$this->curlOptions = array(
-			CURLOPT_CONNECTTIMEOUT => $this->requestOptions['timeout'],
-			CURLOPT_TIMEOUT => $this->requestOptions['timeout']
+		if ($this->method === self::METHOD_CURL_MULTI) {
+			$this->curlOptions = array(
+				CURLOPT_CONNECTTIMEOUT => $this->requestOptions['timeout'],
+				CURLOPT_TIMEOUT => $this->requestOptions['timeout']
 			);
+		}
 		// Use proxy?
-		if ($this->requestOptions['proxyhost']) {
+		if (isset($this->requestOptions['proxyhost']) && $this->requestOptions['proxyhost']) {
 			// For file_get_contents (see http://stackoverflow.com/a/1336419/407938)			
 			$this->httpContext['http']['proxy'] = 'tcp://'.$this->requestOptions['proxyhost'];
 			$this->httpContext['http']['request_fulluri'] = true;
 			// For cURL (see http://stackoverflow.com/a/9247672/407938)
-			$this->curlOptions[CURLOPT_PROXY] = $this->requestOptions['proxyhost'];
+			if ($this->method === self::METHOD_CURL_MULTI) {
+				$this->curlOptions[CURLOPT_PROXY] = $this->requestOptions['proxyhost'];
+			}
 			if (isset($this->requestOptions['proxyauth'])) {
 				$this->httpContext['http']['header'] .= "Proxy-Authorization: Basic ".base64_encode($this->requestOptions['proxyauth'])."\r\n";
-				$this->curlOptions[CURLOPT_PROXYUSERPWD] = $this->requestOptions['proxyauth'];
+				if ($this->method === self::METHOD_CURL_MULTI) {
+					$this->curlOptions[CURLOPT_PROXYUSERPWD] = $this->requestOptions['proxyauth'];
+				}
 			}
 		}
 	}
@@ -842,6 +848,7 @@ class HumbleHttpAgent
 	}
 
 	protected function getCookies($orig, $req_url) {
+		if (!isset($this->cookieJar[$orig])) return null;
 		$jar = $this->cookieJar[$orig];
 		if (!isset($jar)) {
 			return null;

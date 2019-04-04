@@ -2,6 +2,26 @@ FiveFilters.org: Full-Text RSS
 http://fivefilters.org/content-only/
 CHANGELOG
 ------------------------------------
+3.7 (2017-02-12)
+ - Request HTML5 output using HTML5-PHP - new config option $options->html5_output and new request parameter &content=html5
+ - Improve support for lazy-loading images
+ - Feed preview now displays RTL content correctly (added dir='auto' to feed.xsl)
+ - New request parameter images=0 to remove all images from extracted content
+ - Open Graph and Twitter card metadata now returned in JSON output (no longer in RSS output)
+ - Metadata now returned in extract.php even if article extraction fails
+ - Additional data returned in extract.php for developers: 'domain', 'word_count'
+ - HTML5-PHP library updated
+ - SimplePie library updated (fixes PHP 7.1 issue)
+ - New VPS Puppet script (ubuntu-16.04.pp) - installs PHP 7 and Gumbo PHP extension for faster HTML5 parsing
+ - Bug fix: Language detection now works correctly with PHP 7
+ - Bug fix: Take base href URL into account when following next_page/single_page links (thanks Lukas!)
+ - Bug fix: VPS Puppet script installs new version of PECL HTTP extension that fixes problem when requesting punycode encoded domains
+ - Site config files updated for better extraction
+ - Compatibility test file updated (will tell you if Gumbo PHP will be used)
+ - Tidy won't be used to repair HTML if using an HTML5 parser (unless explicitly requested in site config file - tidy: yes)
+ - New config option $options->blocked_message - set what a user will see when a URL is blocked by Full-Text RSS
+ - Other fixes/improvements
+
 3.6 (2016-02-21)
 - Insert og:image (if we find one) at the top of the article when no images have been extracted
 - Additional lazy image load handling - helps preserve more images designed for JS-enabled browsers

@@ -59,6 +59,20 @@ $options->max_entries = 10;
 // from the output.
 $options->content = 'user';
 
+// HTML5 output
+// ----------------------
+// By default, Full-Text RSS uses libxml to convert the parsed DOM tree back into HTML.
+// If this is enabled, we'll use HTML5-PHP to produce the HTML. This will be a little
+// slower, but might produce better results, adhering to the HTML5 spec.
+//
+// Note: in a future release we might make HTML5 output the default.
+// 
+// Possible values...
+// HTML5 (slower): true
+// libxml (faster): false
+// libxml unless user overrides (&content=html5): 'user' (default)
+$options->html5_output = 'user';
+
 // Excerpts
 // ----------------------
 // By default Full-Text RSS does not include excerpts in the output.
@@ -242,6 +256,16 @@ $options->allowed_urls = array();
 // Note: for feeds, this option applies to both feed URLs and item URLs within those feeds.
 $options->blocked_urls = array();
 
+// Blocked message
+// -----------------------
+// If a request is blocked outright because of the two rules above, this is the message
+// that is shown. Please note:
+//  * If the input URL is a feed and it's not blocked, feed items that are blocked will
+//    be skipped, and this message will not be shown.
+//  * If the input URL itself is blocked (feed or not), we will output this message instead
+//    of producing a feed.
+$options->blocked_message = '<strong>URL blocked</strong>';
+
 // Key holder(s) only?
 // ----------------------
 // Set this to true if you want to restrict access only to
@@ -313,7 +337,7 @@ $options->xss_filter = 'user';
 // Use effective URL in place of item URL
 // ----------------------
 // When we extract content for feed items, we often end up at a different URL than the
-// one in the original feed. This is often a result of URL shorteners being used or
+// one in the original feed. This is often a result of URL shorteners or
 // tracking services being used by the feed publisher. We include the final 
 // (effective) URL we reached to get the content inside the dc:identifier field. 
 // If you enable this, we'll also use this URL in place of the original item URL
@@ -500,7 +524,7 @@ $options->cache_cleanup = 100;
 /// DO NOT CHANGE ANYTHING BELOW THIS ///////////
 /////////////////////////////////////////////////
 
-if (!defined('_FF_FTR_VERSION')) define('_FF_FTR_VERSION', '3.6');
+if (!defined('_FF_FTR_VERSION')) define('_FF_FTR_VERSION', '3.7');
 
 if (basename(__FILE__) == 'config.php') {
 	if (file_exists(dirname(__FILE__).'/custom_config.php')) {

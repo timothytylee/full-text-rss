@@ -1,7 +1,7 @@
 Full-Text RSS site config files
 ================
 
-[Full-Text RSS](http://fivefilters.org/content-only/), our article extraction tool, makes use of site-specific extraction rules to improve results. Each time a URL is processed, it checks to see if there are extraction rules for the site being processed. If there are no rules found, it tries to detect the content block automatically.
+[Full-Text RSS](http://fivefilters.org/content-only/), our article extraction tool, makes use of site-specific extraction rules to improve results. Each time a URL is processed, it checks to see if there are extraction rules for the site being processed. If there are no rules are found, it tries to detect the content block automatically.
 
 This repository contains the site-specific extraction rules we rely on in Full-Text RSS.
 

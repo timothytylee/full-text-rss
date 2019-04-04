@@ -1,8 +1,8 @@
 <?php
 
 /*
-htmLawed 1.1.20, 9 June 2015
-OOP code, 9 June 2015
+htmLawed 1.1.22, 5 March 2016
+OOP code, 27 February 2016
 Copyright Santosh Patnaik
 Dual LGPL v3 and GPL v2+ license
 A PHP Labware internal utility; www.bioinformatics.org/phplabware/internal_utilities/htmLawed
@@ -115,31 +115,39 @@ return $t;
 // eof
 }
 
-public static function hl_attrval($t, $p){
+public static function hl_attrval($a, $t, $p){
 // check attr val against $S
-$o = 1; $l = strlen($t);
-foreach($p as $k=>$v){
- switch($k){
-  case 'maxlen':if($l > $v){$o = 0;}
-  break; case 'minlen': if($l < $v){$o = 0;}
-  break; case 'maxval': if((float)($t) > $v){$o = 0;}
-  break; case 'minval': if((float)($t) < $v){$o = 0;}
-  break; case 'match': if(!preg_match($v, $t)){$o = 0;}
-  break; case 'nomatch': if(preg_match($v, $t)){$o = 0;}
-  break; case 'oneof':
-   $m = 0;
-   foreach(explode('|', $v) as $n){if($t == $n){$m = 1; break;}}
-   $o = $m;
-  break; case 'noneof':
-   $m = 1;
-   foreach(explode('|', $v) as $n){if($t == $n){$m = 0; break;}}
-   $o = $m;
-  break; default:
-  break;
+static $ma = array('accesskey', 'class', 'rel');
+$s = in_array($a, $ma) ? ' ' : '';
+$r = array();
+$t = !empty($s) ? explode($s, $t) : array($t);
+foreach($t as $tk=>$tv){
+ $o = 1; $l = strlen($tv);
+ foreach($p as $k=>$v){
+  switch($k){
+   case 'maxlen': if($l > $v){$o = 0;}
+   break; case 'minlen': if($l < $v){$o = 0;}
+   break; case 'maxval': if((float)($tv) > $v){$o = 0;}
+   break; case 'minval': if((float)($tv) < $v){$o = 0;}
+   break; case 'match': if(!preg_match($v, $tv)){$o = 0;}
+   break; case 'nomatch': if(preg_match($v, $tv)){$o = 0;}
+   break; case 'oneof':
+    $m = 0;
+    foreach(explode('|', $v) as $n){if($tv == $n){$m = 1; break;}}
+    $o = $m;
+   break; case 'noneof':
+    $m = 1;
+    foreach(explode('|', $v) as $n){if($tv == $n){$m = 0; break;}}
+    $o = $m;
+   break; default:
+   break;
+  }
+  if(!$o){break;}
  }
- if(!$o){break;}
+ if($o){$r[] = $tv;}
 }
-return ($o ? $t : (isset($p['default']) ? $p['default'] : 0));
+$r = implode($s, $r);
+return (isset($r[0]) ? $r : (isset($p['default']) ? $p['default'] : 0));
 // eof
 }
 
@@ -526,7 +534,7 @@ foreach($aA as $k=>$v){
     }
    }
   }
-  if(isset($rl[$k]) && is_array($rl[$k]) && ($v = htmLawed::hl_attrval($v, $rl[$k])) === 0){continue;}
+  if(isset($rl[$k]) && is_array($rl[$k]) && ($v = htmLawed::hl_attrval($k, $v, $rl[$k])) === 0){continue;}
   $a[$k] = str_replace('"', '&quot;', $v);
  }
 }
@@ -628,16 +636,15 @@ if($e == 'u'){$e = 'span'; return 'text-decoration: underline;';}
 static $fs = array('0'=>'xx-small', '1'=>'xx-small', '2'=>'small', '3'=>'medium', '4'=>'large', '5'=>'x-large', '6'=>'xx-large', '7'=>'300%', '-1'=>'smaller', '-2'=>'60%', '+1'=>'larger', '+2'=>'150%', '+3'=>'200%', '+4'=>'300%');
 if($e == 'font'){
  $a2 = '';
- if(preg_match('`face\s*=\s*(\'|")([^=]+?)\\1`i', $a, $m) or preg_match('`face\s*=(\s*)(\S+)`i', $a, $m)){
-  $a2 .= ' font-family: '. str_replace('"', '\'', trim($m[2])). ';';
+ while(preg_match('`(^|\s)(color|size)\s*=\s*(\'|")?(.+?)(\\3|\s|$)`i', $a, $m)){
+  $a = str_replace($m[0], ' ', $a);
+  $a2 .= strtolower($m[2]) == 'color' ? (' color: '. str_replace('"', '\'', trim($m[4])). ';') : (isset($fs[($m = trim($m[4]))]) ? ($a2 .= ' font-size: '. str_replace('"', '\'', $fs[$m]). ';') : '');
  }
- if(preg_match('`color\s*=\s*(\'|")?(.+?)(\\1|\s|$)`i', $a, $m)){
-  $a2 .= ' color: '. str_replace('"', '\'', trim($m[2])). ';';
+ while(preg_match('`(^|\s)face\s*=\s*(\'|")?([^=]+?)\\2`i', $a, $m) or preg_match('`(^|\s)face\s*=(\s*)(\S+)`i', $a, $m)){
+  $a = str_replace($m[0], ' ', $a);
+  $a2 .= ' font-family: '. str_replace('"', '\'', trim($m[3])). ';';
  }
- if(preg_match('`size\s*=\s*(\'|")?(.+?)(\\1|\s|$)`i', $a, $m) && isset($fs[($m = trim($m[2]))])){
-  $a2 .= ' font-size: '. str_replace('"', '\'', $fs[$m]). ';';
- }
- $e = 'span'; return ltrim($a2);
+ $e = 'span'; return ltrim(str_replace('<', '', $a2));
 }
 if($t == 2){$e = 0; return 0;}
 return '';
@@ -701,7 +708,7 @@ return str_replace(array("\x01", "\x02", "\x03", "\x04", "\x05", "\x07"), array(
 
 public static function hl_version(){
 // rel
-return '1.1.20';
+return '1.1.22';
 // eof
 }
 

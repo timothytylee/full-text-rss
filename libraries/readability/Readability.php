@@ -4,6 +4,7 @@
 * Based on readability.js version 1.7.1 (without multi-page support)
 * Updated to allow HTML5 parsing with html5lib
 * Updated with lightClean mode to preserve more images and youtube/vimeo/viddler embeds
+* Updated to allow HTML5 parsing with Gumbo PHP
 * ------------------------------------------------------
 * Original URL: http://lab.arc90.com/experiments/readability/js/readability.js
 * Arc90's project URL: http://lab.arc90.com/experiments/readability/
@@ -12,7 +13,7 @@
 * More information: http://fivefilters.org/content-only/
 * License: Apache License, Version 2.0
 * Requires: PHP5
-* Date: 2015-06-01
+* Date: 2017-02-05
 * 
 * Differences between the PHP port and the original
 * ------------------------------------------------------
@@ -117,17 +118,23 @@ class Readability
 		$html = preg_replace($this->regexps['replaceBrs'], '</p><p>', $html);
 		$html = preg_replace($this->regexps['replaceFonts'], '<$1span>', $html);
 		if (trim($html) == '') $html = '<html></html>';
-		if ($parser=='html5lib' || $parser=='html5php') {
-			if (version_compare(PHP_VERSION, '5.3.0') >= 0) {
-				//use Masterminds\HTML5;
-				$html5class = 'Masterminds\HTML5';
-				$html5 = new $html5class(array('disable_html_ns' => true));
-				$this->dom = $html5->loadHTML($html);
-				//echo $html5->saveHTML($this->dom);exit;
-				//$xpath = new DOMXPath($this->dom);
-				//$elems = $xpath->query("//a");
-				//print_r($elems);exit;
-			}
+		// Check for the Gumbo PHP extension https://github.com/layershifter/gumbo-php
+		if ($parser=='gumbo') {
+			// Can we avoid this encoding/deocding step? Test on:
+			// http://www.medialens.org/index.php/alerts/alert-archive/2017/837-undermining-democracy-corporate-media-bias-on-jeremy-corbyn-boris-johnson-and-syria.html
+			$html = mb_convert_encoding($html, 'HTML-ENTITIES', "UTF-8");
+			$html = mb_convert_encoding($html, "UTF-8", 'HTML-ENTITIES');
+			$this->dom = @Layershifter\Gumbo\Parser::load($html);
+		} elseif ($parser=='html5lib' || $parser=='html5php') {
+			//use Masterminds\HTML5;
+			//$html5class = 'Masterminds\HTML5';
+			//$html5 = new $html5class(array('disable_html_ns' => true));
+			$html5 = new Masterminds\HTML5(array('disable_html_ns' => true));
+			$this->dom = $html5->loadHTML($html);
+			//echo $html5->saveHTML($this->dom);exit;
+			//$xpath = new DOMXPath($this->dom);
+			//$elems = $xpath->query("//a");
+			//print_r($elems);exit;
 		}
 		if ($this->dom === null) {
 			$this->dom = new DOMDocument();

@@ -971,7 +971,7 @@ class Text_LanguageDetect
 
         // assume that ascii characters are the most common
         // so try it first for efficiency
-        if ($unicode <= $blocks[0][1]) {
+        if ($unicode <= hexdec($blocks[0][1])) {
             return $blocks[0];
         }
 
@@ -989,11 +989,11 @@ class Text_LanguageDetect
         while ($low <= $high) {
             $mid = floor(($low + $high) / 2);
 
-            if ($unicode < $blocks[$mid][0]) {
+            if ($unicode < hexdec($blocks[$mid][0])) {
                 // if it's lower than the lower bound
                 $high = $mid - 1;
 
-            } elseif ($unicode > $blocks[$mid][1]) {
+            } elseif ($unicode > hexdec($blocks[$mid][1])) {
                 // if it's higher than the upper bound
                 $low = $mid + 1;
 

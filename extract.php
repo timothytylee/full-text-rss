@@ -50,8 +50,12 @@ $_POST['accept'] = 'html';
 $_POST['format'] = 'json';
 // Enable excerpts
 $_POST['summary'] = '1';
+// Guess language if it's not already marked up
+$_POST['lang'] = '2';
 // Don't produce result if extraction fails
-$_POST['exc'] = '1';
+// Additional meta elements might still be useful (e.g. og/twitter elements),
+// so we're commeting this out from FTR 3.7
+//$_POST['exc'] = '1';
 // Enable XSS filtering (unless explicitly disabled)
 if (isset($_POST['xss']) && $_POST['xss'] !== '0') {
 	$_POST['xss'] = '1';
