@@ -1,17 +1,13 @@
 Full-Text RSS
 =============
 
-### NOTE
+[Full-Text RSS](https://fivefilters.org/content-only/) from [FiveFilters.org](https://fivefilters.org) is used by software developers and news enthusiasts to extract article content from news sites and blogs, and to convert RSS feeds that contain only extracts of stories to full-text feeds.
 
-This is a our public version of Full-Text RSS available to download for free from <https://bitbucket.org/fivefilters>.
+This is the public version of Full-Text RSS available to download for free from <https://bitbucket.org/fivefilters>.
 
-For best extraction results, and to help us sustain the project, you can purchase the most up-to-date version at <http://fivefilters.org/content-only/#download> - so if you like this free version, please consider supporting us by purchasing the latest release. 
+For best extraction results, and to help us sustain the project, you can purchase the most up-to-date version at <http://fivefilters.org/content-only/#download>.
 
-If you have no need for the latest release, but would still like to contribute something, you can donate via [Gittip](https://www.gittip.com/fivefilters/) or [Flattr](https://flattr.com/profile/k1m).
-
-### About
-
-See <http://fivefilters.org/content-only/> for a description of the code.
+If want a managed, hosted API instead, [see our plans](https://rapidapi.com/fivefilters/api/full-text-rss/pricing).
 
 ### Installation
 
@@ -19,7 +15,7 @@ See <http://fivefilters.org/content-only/> for a description of the code.
 
 2. FTP the files up to your server
 
-3. Access index.php through your browser. E.g. http://example.org/full-text-rss/index.php
+3. Access index.php through your browser. E.g. https://example.org/full-text-rss/index.php
 
 4. Enter a URL in the form field to test the code
 
