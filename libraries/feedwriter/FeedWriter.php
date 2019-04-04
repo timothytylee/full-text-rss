@@ -1,4 +1,6 @@
 <?php
+define('ATOM', -1); // unused
+define('RSS1', 0); // unused
 define('RSS2', 1);
 define('JSON', 2);
 define('JSONP', 3);

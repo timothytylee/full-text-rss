@@ -3,8 +3,8 @@
 // Author: Keyvan Minoukadeh
 // Copyright (c) 2017 Keyvan Minoukadeh
 // License: AGPLv3
-// Version: 3.7
-// Date: 2017-02-12
+// Version: 3.8
+// Date: 2017-09-25
 // More info: http://fivefilters.org/content-only/
 // Help: http://help.fivefilters.org
 
@@ -183,7 +183,9 @@ if (!isset($_REQUEST['url'])) {
 	die('No URL supplied'); 
 }
 $url = trim($_REQUEST['url']);
-if (strtolower(substr($url, 0, 7)) == 'feed://') {
+if (strtolower(substr($url, 0, 6)) == 'sec://') {
+	$url = 'https://'.substr($url, 6);
+} elseif (strtolower(substr($url, 0, 7)) == 'feed://') {
 	$url = 'http://'.substr($url, 7);
 }
 if (!preg_match('!^https?://.+!i', $url)) {
@@ -345,10 +347,10 @@ if ($options->content === 'user') {
 // HTML5 output?
 ///////////////////////////////////////////////
 if ($options->html5_output === 'user') {
-	if (isset($_REQUEST['content']) && $_REQUEST['content'] === 'html5') {
-		$options->html5_output = true;
-	} else {
+	if (isset($_REQUEST['content']) && $_REQUEST['content'] === '1') {
 		$options->html5_output = false;
+	} else {
+		$options->html5_output = true;
 	}
 }
 
@@ -820,7 +822,7 @@ foreach ($items as $key => $item) {
 					continue; // skip this feed item entry
 				}
 			}
-			$base_url = get_base_url($readability->dom);
+			$base_url = get_base_url($readability->dom, $effective_url);
 			if (!$base_url) $base_url = $effective_url;
 			$content_block = ($extract_result) ? $extractor->getContent() : null;			
 			$extracted_title = ($extract_result) ? $extractor->getTitle() : '';
@@ -945,6 +947,7 @@ foreach ($items as $key => $item) {
 			//unset($content_block);
 			// post-processing cleanup
 			$html = preg_replace('!<p>[\s\h\v]*</p>!u', '', $html);
+			$html = str_replace('<p>&nbsp;</p>', '', $html);
 			if ($links == 'remove') {
 				$html = preg_replace('!<a\s+[^>]*>!', '', $html);
 				$html = preg_replace('!</a>!', '', $html);
@@ -1080,6 +1083,7 @@ foreach ($items as $key => $item) {
 					$l_result = $l->detect($text_sample, 1);
 					if (count($l_result) > 0) {
 						$language = key($l_result);
+						debug('Language detected: '.$language);
 					}
 				}
 			} catch (Exception $e) {
@@ -1248,6 +1252,17 @@ function get_self_url() {
 }
 
 function validate_url($url) {
+	if (function_exists('idn_to_ascii')) {
+		if ($host = @parse_url($url, PHP_URL_HOST)) {
+			$puny = idn_to_ascii($host, 0, INTL_IDNA_VARIANT_UTS46);
+			if ($host != $puny) {
+				$pos = strpos($url, $host);
+				if ($pos !== false) {
+					$url = substr_replace($url, $puny, $pos, strlen($host));
+				}
+			}
+		}
+	}
 	$url = filter_var($url, FILTER_SANITIZE_URL);
 	$test = filter_var($url, FILTER_VALIDATE_URL, FILTER_FLAG_SCHEME_REQUIRED);
 	// deal with bug http://bugs.php.net/51192 (present in PHP 5.2.13 and PHP 5.3.2)
@@ -1261,9 +1276,14 @@ function validate_url($url) {
 	}
 }
 
-function get_base_url($dom) {
+function get_base_url($dom, $url=null) {
 	$xpath = new DOMXPath($dom);
-	return @$xpath->evaluate('string(//head/base/@href)', $dom);
+	$base = @$xpath->evaluate('string(//head/base/@href)', $dom);
+	if (!$base) return false;
+	if (isset($url) && !preg_match('!^https?://!i', $base)) {
+		$base = make_absolute_str($url, $base);
+	}
+	return $base;
 }
 
 function is_ssl() {
@@ -1436,7 +1456,7 @@ function make_absolute_attr($base, $e, $attr) {
 		$url = str_replace(' ', '%20', $url);
 		if (!preg_match('!https?://!i', $url)) {
 			if ($absolute = SimplePie_IRI::absolutize($base, $url)) {
-				$e->setAttribute($attr, $absolute);
+				$e->setAttribute($attr, $absolute->get_uri());
 			}
 		}
 	}
@@ -1450,7 +1470,7 @@ function make_absolute_str($base, $url) {
 		return $url;
 	} else {
 		if ($absolute = SimplePie_IRI::absolutize($base, $url)) {
-			return $absolute;
+			return $absolute->get_uri();
 		}
 		return false;
 	}
@@ -1529,7 +1549,7 @@ function get_single_page($item, $html, $url) {
 				}
 			}
 		}
-		$base_url = get_base_url($readability->dom);
+		$base_url = get_base_url($readability->dom, $url);
 		if (!$base_url) $base_url = $url;
 		// If we've got URL, resolve against $base_url
 		if (isset($single_page_url) && ($single_page_url = make_absolute_str($base_url, $single_page_url))) {

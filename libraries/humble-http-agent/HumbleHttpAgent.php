@@ -7,8 +7,8 @@
  * For environments which do not have these options, it reverts to standard sequential 
  * requests (using file_get_contents())
  * 
- * @version 1.7
- * @date 2016-11-28
+ * @version 1.8
+ * @date 2017-09-25
  * @see http://devel-m6w6.rhcloud.com/mdref/http
  * @author Keyvan Minoukadeh
  * @copyright 2011-2016 Keyvan Minoukadeh
@@ -21,8 +21,9 @@ class HumbleHttpAgent
 	const METHOD_CURL_MULTI = 2;
 	const METHOD_FILE_GET_CONTENTS = 4;
 	//const UA_BROWSER = 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:2.0.1) Gecko/20100101 Firefox/4.0.1';
-	const UA_BROWSER = 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.71 Safari/537.36';
-	const UA_PHP = 'PHP/5.6';
+	// popular user agents from https://techblog.willshouse.com/2012/01/03/most-common-user-agents/
+	const UA_BROWSER = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36';
+	const UA_PHP = 'PHP/7.1';
 	const REF_GOOGLE = 'http://www.google.co.uk/url?sa=t&source=web&cd=1';
 	
 	protected $requests = array();
@@ -194,6 +195,24 @@ class HumbleHttpAgent
 	
 	public function getMetaRefreshURL($url, $html) {
 		if ($html == '') return false;
+
+		// TODO: parse HTML properly
+		// For now, to deal with cases where meta refresh matches but shouldn't, e.g. CNN's 
+		// <!--[if lte IE 9]><meta http-equiv="refresh" content="1;url=/2.37.2/static/unsupp.html" /><![endif]-->
+		// we do the string replacements in the site config file before looking for the meta refresh
+		if (isset($this->siteConfigBuilder)) {
+			$sconfig = $this->siteConfigBuilder->buildSiteConfig($url);
+			// do string replacements
+			if (!empty($sconfig->find_string)) {
+				if (count($sconfig->find_string) == count($sconfig->replace_string)) {
+					$html = str_replace($sconfig->find_string, $sconfig->replace_string, $html, $_count);
+					//$this->debug("Strings replaced: $_count (find_string and/or replace_string)");
+				} else {
+					//$this->debug('Skipped string replacement - incorrect number of find-replace strings in site config');
+				}
+			}
+		}
+
 		// <meta HTTP-EQUIV="REFRESH" content="0; url=http://www.bernama.com/bernama/v6/newsindex.php?id=943513">
 		if (!preg_match('!<meta http-equiv=["\']?refresh["\']? content=["\']?[0-9];\s*url=["\']?([^"\'>]+)["\']?!i', $html, $match)) {
 			return false;
@@ -211,7 +230,7 @@ class HumbleHttpAgent
 		if (isset($base->path)) $base->path = preg_replace('!//+!', '/', $base->path);
 		if ($absolute = SimplePie_IRI::absolutize($base, $redirect_url)) {
 			$this->debug('Meta refresh redirect found (http-equiv="refresh"), new URL: '.$absolute);
-			return $absolute->get_iri();
+			return $absolute->get_uri();
 		}
 		return false;
 	}	
@@ -248,6 +267,21 @@ class HumbleHttpAgent
 		}
 	}
 	
+	public function convertIdn($url) {
+		if (function_exists('idn_to_ascii')) {
+			if ($host = @parse_url($url, PHP_URL_HOST)) {
+				$puny = idn_to_ascii($host, 0, INTL_IDNA_VARIANT_UTS46);
+				if ($host != $puny) {
+					$pos = strpos($url, $host);
+					if ($pos !== false) {
+						$url = substr_replace($url, $puny, $pos, strlen($host));
+					}
+				}
+			}
+		}
+		return $url;
+	}
+
 	public function rewriteUrls($url) {
 		foreach ($this->rewriteUrls as $find => $action) {
 			if (strpos($url, $find) !== false) {
@@ -327,6 +361,7 @@ class HumbleHttpAgent
 						} else {
 							$this->debug("......adding to pool");
 							$req_url = $this->rewriteUrls($url);
+							$req_url = $this->convertIdn($req_url);
 							$req_url = ($this->rewriteHashbangFragment) ? $this->rewriteHashbangFragment($req_url) : $req_url;
 							$req_url = $this->removeFragment($req_url);
 							if (!empty($this->headerOnlyTypes) && !isset($this->requests[$orig]['wrongGuess']) && $this->possibleUnsupportedType($req_url)) {
@@ -507,6 +542,7 @@ class HumbleHttpAgent
 					} else {
 						$this->debug("......adding to pool");
 						$req_url = $this->rewriteUrls($url);
+						$req_url = $this->convertIdn($req_url);
 						$req_url = ($this->rewriteHashbangFragment) ? $this->rewriteHashbangFragment($req_url) : $req_url;
 						$req_url = $this->removeFragment($req_url);
 						if (!empty($this->headerOnlyTypes) && !isset($this->requests[$orig]['wrongGuess']) && $this->possibleUnsupportedType($req_url)) {
@@ -649,6 +685,7 @@ class HumbleHttpAgent
 					$this->debug("Sending request for $url");
 					$this->requests[$orig]['original_url'] = $orig;
 					$req_url = $this->rewriteUrls($url);
+					$req_url = $this->convertIdn($req_url);
 					$req_url = ($this->rewriteHashbangFragment) ? $this->rewriteHashbangFragment($req_url) : $req_url;
 					$req_url = $this->removeFragment($req_url);
 					$httpContext = $this->httpContext;

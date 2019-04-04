@@ -5,8 +5,8 @@
  * Uses patterns specified in site config files and auto detection (hNews/PHP Readability) 
  * to extract content from HTML files.
  * 
- * @version 1.3
- * @date 2017-02-12
+ * @version 1.4
+ * @date 2017-09-25
  * @author Keyvan Minoukadeh
  * @copyright 2017 Keyvan Minoukadeh
  * @license http://www.gnu.org/licenses/agpl-3.0.html AGPL v3
@@ -107,24 +107,13 @@ class ContentExtractor
 	}
 	
 	// returns SiteConfig instance (joined in order: exact match, wildcard, fingerprint, global, default)
-	public function buildSiteConfig($url, $html='', $add_to_cache=true) {
+	public function buildSiteConfig($url, $html='') {
 		// extract host name
 		$host = @parse_url($url, PHP_URL_HOST);
 		$host = strtolower($host);
 		if (substr($host, 0, 4) == 'www.') $host = substr($host, 4);
-		// is merged version already cached?
-		if (SiteConfig::is_cached("$host.merged")) {
-			$config = SiteConfig::build("$host.merged");
-			if ($config) {
-				$this->debug("Returning cached and merged site config for $host");
-				return $config;
-			}
-		}
 		// let's build from site_config/custom/ and standard/
 		$config = SiteConfig::build($host);
-		if ($add_to_cache && $config && !SiteConfig::is_cached("$host")) {
-			SiteConfig::add_to_cache($host, $config);
-		}
 		// if no match, use defaults
 		if (!$config) $config = new SiteConfig();
 		// load fingerprint config?
@@ -134,10 +123,6 @@ class ContentExtractor
 				if ($config_fingerprint = SiteConfig::build($_fphost)) {
 					$this->debug("Appending site config settings from $_fphost (fingerprint match)");
 					$config->append($config_fingerprint);
-					if ($add_to_cache && !SiteConfig::is_cached($_fphost)) {
-						//$config_fingerprint->cache_in_apc = true;
-						SiteConfig::add_to_cache($_fphost, $config_fingerprint);
-					}
 				}
 			}
 		}
@@ -146,18 +131,7 @@ class ContentExtractor
 			if ($config_global = SiteConfig::build('global', true)) {
 				$this->debug('Appending site config settings from global.txt');
 				$config->append($config_global);
-				if ($add_to_cache && !SiteConfig::is_cached('global')) {
-					//$config_global->cache_in_apc = true;
-					SiteConfig::add_to_cache('global', $config_global);
-				}
 			}
-		}
-		// store copy of merged config
-		if ($add_to_cache) {
-			// do not store in APC if wildcard match
-			$use_apc = ($host == $config->cache_key);
-			$config->cache_key = null;
-			SiteConfig::add_to_cache("$host.merged", $config, $use_apc);
 		}
 		return $config;
 	}
@@ -398,10 +372,14 @@ class ContentExtractor
 			$elems = @$xpath->query($pattern, $this->readability->dom);
 			// check for matches
 			if ($elems && $elems->length > 0) {
-				$this->debug('Stripping '.$elems->length.' elements (strip)');
+				$this->debug('Stripping '.$elems->length.' elements (strip: '.$pattern.')');
 				for ($i=$elems->length-1; $i >= 0; $i--) {
 					if ($elems->item($i)->parentNode) {
-						$elems->item($i)->parentNode->removeChild($elems->item($i));
+						if ($elems->item($i) instanceof DOMAttr) {
+							$elems->item($i)->parentNode->removeAttributeNode($elems->item($i));
+						} else {
+							$elems->item($i)->parentNode->removeChild($elems->item($i));
+						}
 					}
 				}
 			}
@@ -413,7 +391,7 @@ class ContentExtractor
 			$elems = @$xpath->query("//*[contains(@class, '$string') or contains(@id, '$string')]", $this->readability->dom);
 			// check for matches
 			if ($elems && $elems->length > 0) {
-				$this->debug('Stripping '.$elems->length.' elements (strip_id_or_class)');
+				$this->debug('Stripping '.$elems->length.' elements (strip_id_or_class: '.$string.')');
 				for ($i=$elems->length-1; $i >= 0; $i--) {
 					$elems->item($i)->parentNode->removeChild($elems->item($i));
 				}
@@ -426,12 +404,13 @@ class ContentExtractor
 			$elems = @$xpath->query("//img[contains(@src, '$string')]", $this->readability->dom);
 			// check for matches
 			if ($elems && $elems->length > 0) {
-				$this->debug('Stripping '.$elems->length.' image elements');
+				$this->debug('Stripping '.$elems->length.' elements (strip_image_src: '.$string.')');
 				for ($i=$elems->length-1; $i >= 0; $i--) {
 					$elems->item($i)->parentNode->removeChild($elems->item($i));
 				}
 			}
 		}
+
 		// strip elements using Readability.com and Instapaper.com ignore class names
 		// .entry-unrelated and .instapaper_ignore
 		// See https://www.readability.com/publishers/guidelines/#view-plainGuidelines
@@ -464,7 +443,22 @@ class ContentExtractor
 				$elems->item($i)->parentNode->removeChild($elems->item($i));
 			}
 		}
-		
+
+		// strip img srcset/sizes attributes with relative URIs (src should be present and will be absolutised)
+		// TODO: absolutize srcet values rather than removing them
+		// To remove srcset from all image elements, site config files can contain: strip: //img/@srcset
+		$elems = $xpath->query("//img[@srcset and not(contains(@srcset, '//'))]", $this->readability->dom);
+		// check for matches
+		if ($elems && $elems->length > 0) {
+			$this->debug('Stripping '.$elems->length.' srcset attributes');
+			foreach ($elems as $elem) {
+				$elem->removeAttribute('srcset');
+				if ($elem->hasAttribute('sizes')) {
+					$elem->removeAttribute('sizes');
+				}
+			}
+		}
+
 		// try to get body
 		foreach ($this->config->body as $pattern) {
 			$elems = @$xpath->query($pattern, $this->readability->dom);
@@ -880,7 +874,7 @@ class ContentExtractor
 				}
 			} else {
 				// If there's an og:image, but we have no images in the article, let's place it at the beginning of the article.
-				if ($this->body->hasChildNodes() && isset($this->opengraph['og:image']) && substr($this->opengraph['og:image'], 0, 4) === 'http') {
+				if ($this->config->insert_detected_image() && $this->body->hasChildNodes() && isset($this->opengraph['og:image']) && substr($this->opengraph['og:image'], 0, 4) === 'http') {
 					$elems = @$xpath->query(".//img", $this->body);
 					if ($elems->length === 0) {
 						$_new_elem = $this->body->ownerDocument->createDocumentFragment();
@@ -902,7 +896,7 @@ class ContentExtractor
 
 		return $this->success;
 	}
-	
+
 	private function isDescendant(DOMElement $parent, DOMElement $child) {
 		$node = $child->parentNode;
 		while ($node != null) {

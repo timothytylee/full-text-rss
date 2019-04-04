@@ -25,6 +25,7 @@ if (!defined('_FF_FTR_INDEX')) {
 		// remove http scheme from urls before submitting
 		$('#form').submit(function() {
 			$('#url').val($('#url').val().replace(/^http:\/\//i, ''));
+			$('#url').val($('#url').val().replace(/^https:\/\//i, 'sec://'));
 			return true;
 		});
 		// popovers
@@ -271,8 +272,8 @@ if (!defined('_FF_FTR_INDEX')) {
 
 		<tr>
 			<td>content</td>
-			<td><tt>0</tt>, <tt>1</tt> (default), <tt>html5</tt></td>
-			<td>If set to 0, the extracted content will not be included in the output. If set to html5, we'll output HTML5.</td>
+			<td><tt>0</tt>, <tt>1</tt>, <tt>html5</tt> (default)</td>
+			<td>If set to 0, the extracted content will not be included in the output. If set to 1, we'll use regular libxml output - might not be HTML5 compliant.</td>
 		</tr>
 		
 		<tr>

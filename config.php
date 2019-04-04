@@ -61,16 +61,15 @@ $options->content = 'user';
 
 // HTML5 output
 // ----------------------
-// By default, Full-Text RSS uses libxml to convert the parsed DOM tree back into HTML.
-// If this is enabled, we'll use HTML5-PHP to produce the HTML. This will be a little
-// slower, but might produce better results, adhering to the HTML5 spec.
-//
-// Note: in a future release we might make HTML5 output the default.
+// Full-Text RSS used to rely on libxml to output HTML extracted from
+// a web page. Since version 3.8 we use HTML5-PHP by default.
+// If you prefer the old output, either set this to false or pass &content=1 
+// in the querystring.
 // 
 // Possible values...
 // HTML5 (slower): true
 // libxml (faster): false
-// libxml unless user overrides (&content=html5): 'user' (default)
+// HTML5 unless user overrides (&content=1): 'user' (default)
 $options->html5_output = 'user';
 
 // Excerpts
@@ -524,7 +523,7 @@ $options->cache_cleanup = 100;
 /// DO NOT CHANGE ANYTHING BELOW THIS ///////////
 /////////////////////////////////////////////////
 
-if (!defined('_FF_FTR_VERSION')) define('_FF_FTR_VERSION', '3.7');
+if (!defined('_FF_FTR_VERSION')) define('_FF_FTR_VERSION', '3.8');
 
 if (basename(__FILE__) == 'config.php') {
 	if (file_exists(dirname(__FILE__).'/custom_config.php')) {
