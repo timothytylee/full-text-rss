@@ -16,7 +16,7 @@ SimplePie.org. We have kept most of their checks intact as we use SimplePie in o
 http://github.com/simplepie/simplepie/tree/master/compatibility_test/
 */
 
-$app_name = 'Full-Text RSS 3.5';
+$app_name = 'Full-Text RSS 3.6';
 
 // Full-Text RSS is not yet compatible with HHVM, that's why we check for it with HHVM_VERSION.
 //$php_ok = (function_exists('version_compare') && version_compare(phpversion(), '5.2.0', '>=') && !defined('HHVM_VERSION'));

@@ -3,8 +3,8 @@
 // Author: Keyvan Minoukadeh
 // Copyright (c) 2015 Keyvan Minoukadeh
 // License: AGPLv3
-// Version: 3.5
-// Date: 2015-05-29
+// Version: 3.6
+// Date: 2016-02-17
 // More info: http://fivefilters.org/content-only/
 // Help: http://help.fivefilters.org
 
@@ -128,6 +128,11 @@ header("Content-Security-Policy: script-src 'self'; connect-src 'none'; font-src
 if (!$options->enabled) { 
 	die('The full-text RSS service is currently disabled'); 
 }
+
+//////////////////////////////////
+// Enable Cross-Origin Resource Sharing (CORS)
+//////////////////////////////////
+if ($options->cors) header('Access-Control-Allow-Origin: *');
 
 ////////////////////////////////
 // Debug mode?
@@ -308,6 +313,16 @@ if ($options->favour_feed_titles == 'user') {
 }
 
 ///////////////////////////////////////////////
+// Favour effective URL
+///////////////////////////////////////////////
+$favour_effective_url = false;
+if ($options->favour_effective_url == 'user') {
+	$favour_effective_url = isset($_REQUEST['use_effective_url']);
+} else {
+	$favour_effective_url = $options->favour_effective_url;
+}
+
+///////////////////////////////////////////////
 // Include full content in output?
 ///////////////////////////////////////////////
 if ($options->content === 'user') {
@@ -438,11 +453,6 @@ if (!empty($options->proxy_servers)) {
 }
 
 //////////////////////////////////
-// Enable Cross-Origin Resource Sharing (CORS)
-//////////////////////////////////
-if ($options->cors) header('Access-Control-Allow-Origin: *');
-
-//////////////////////////////////
 // Has the HTML been given in the request?
 //////////////////////////////////
 if (isset($_REQUEST['inputhtml']) && _FF_FTR_MODE == 'simple') {
@@ -459,7 +469,7 @@ if (isset($_REQUEST['inputhtml']) && _FF_FTR_MODE == 'simple') {
 if ($options->caching) {
 	debug('Caching is enabled...');
 	$cache_id = md5($max.$url.(int)$valid_key.$accept.$links.(int)$favour_feed_titles.(int)$options->content.(int)$options->summary.
-					(int)$xss_filter.(int)$exclude_on_fail.$format.$detect_language.$parser.$user_submitted_config._FF_FTR_MODE);
+					(int)$xss_filter.(int)$favour_effective_url.(int)$exclude_on_fail.$format.$detect_language.$parser.$user_submitted_config._FF_FTR_MODE);
 	$check_cache = true;
 	if ($options->apc && $options->smart_cache) {
 		apc_add("cache.$cache_id", 0, $options->cache_time*60);
@@ -623,6 +633,7 @@ if ($accept === 'html' || !$result) {
 		public function get_enclosure($key=0, $prefer=null) { return null; }
 		public function get_enclosures() { return null; }
 		public function get_categories() { return null; }
+		public function get_item_tags($namespace='', $tag='') { return null; }
 	}
 	$feed = new DummySingleItemFeed($url);
 }
@@ -916,7 +927,24 @@ foreach ($items as $key => $item) {
 		}
 	}
 
-	$newitem->addElement('guid', $item->get_permalink(), array('isPermaLink'=>'true'));
+	// guid
+	$_guid = $item->get_permalink();
+	$_ispermalink = 'true';
+	$_g = $item->get_item_tags('', 'guid');
+	if (is_array($_g) && count($_g) > 0) {
+		$_ispermalink = null;
+		$_guid = $_g[0]['data'];
+		if (isset($_g[0]['attribs']) && isset($_g[0]['attribs']['']) && isset($_g[0]['attribs']['']['isPermaLink'])) {
+			$_ispermalink = $_g[0]['attribs']['']['isPermaLink'];
+			if ($_ispermalink !== 'true') $_ispermalink = 'false';
+		}
+	}
+	if (isset($_ispermalink)) {
+		$newitem->addElement('guid', $_guid, array('isPermaLink'=>$_ispermalink));
+	} else {
+		$newitem->addElement('guid', $_guid);
+	}
+	unset($_g, $_guid, $_ispermalink);
 	
 	// filter xss?
 	if ($xss_filter) {
@@ -1027,6 +1055,7 @@ foreach ($items as $key => $item) {
 		//http://www.siasat.pk/forum/showthread.php?108883-Pakistan-Chowk-by-Rana-Mubashir-–-25th-March-2012-Special-Program-from-Liari-(Karachi)
 		//temporary measure: use utf8_encode()
 		$newitem->addElement('dc:identifier', remove_url_cruft(utf8_encode($effective_url)));
+		if ($favour_effective_url) $newitem->setLink(remove_url_cruft(utf8_encode($effective_url)));
 	} else {
 		$newitem->addElement('dc:identifier', remove_url_cruft($item->get_permalink()));
 	}
@@ -1162,6 +1191,7 @@ function get_self_url() {
 	if (isset($_GET['lang'])) $self .= '&lang='.urlencode($_GET['lang']);
 	if (isset($_GET['xss'])) $self .= '&xss';
 	if (isset($_GET['use_extracted_title'])) $self .= '&use_extracted_title';
+	if (isset($_GET['use_effective_url'])) $self .= '&use_effective_url';	
 	if (isset($_GET['content'])) $self .= '&content='.urlencode($_GET['content']);
 	if (isset($_GET['summary'])) $self .= '&summary='.urlencode($_GET['summary']);
 	if (isset($_GET['debug'])) $self .= '&debug';

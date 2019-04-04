@@ -310,6 +310,22 @@ $options->max_entries_with_key = 10;
 // false - disabled
 $options->xss_filter = 'user';
 
+// Use effective URL in place of item URL
+// ----------------------
+// When we extract content for feed items, we often end up at a different URL than the
+// one in the original feed. This is often a result of URL shorteners being used or
+// tracking services being used by the feed publisher. We include the final 
+// (effective) URL we reached to get the content inside the dc:identifier field. 
+// If you enable this, we'll also use this URL in place of the original item URL
+// in the new feed we produce.
+// By default, we keep the original item URL but the user can request the effective
+// URL by passing '&use_effective_url' in the querystring.
+// Possible values:
+// * Use effective URL: true
+// * Keep item URL in original feed: false
+// * Keep item URL unless user requests effective URL: 'user' (default)
+$options->favour_effective_url = 'user';
+
 // Favour item titles in feed
 // ----------------------
 // By default, when processing feeds, we assume item titles in the feed
@@ -484,7 +500,7 @@ $options->cache_cleanup = 100;
 /// DO NOT CHANGE ANYTHING BELOW THIS ///////////
 /////////////////////////////////////////////////
 
-if (!defined('_FF_FTR_VERSION')) define('_FF_FTR_VERSION', '3.5');
+if (!defined('_FF_FTR_VERSION')) define('_FF_FTR_VERSION', '3.6');
 
 if (basename(__FILE__) == 'config.php') {
 	if (file_exists(dirname(__FILE__).'/custom_config.php')) {

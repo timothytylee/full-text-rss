@@ -5,10 +5,10 @@
  * Uses patterns specified in site config files and auto detection (hNews/PHP Readability) 
  * to extract content from HTML files.
  * 
- * @version 1.1
- * @date 2014-03-28
+ * @version 1.2
+ * @date 2016-02-21
  * @author Keyvan Minoukadeh
- * @copyright 2014 Keyvan Minoukadeh
+ * @copyright 2016 Keyvan Minoukadeh
  * @license http://www.gnu.org/licenses/agpl-3.0.html AGPL v3
  */
 
@@ -765,11 +765,17 @@ class ContentExtractor
 				}
 			}
 			// prevent self-closing iframes
-			$elems = $this->body->getElementsByTagName('iframe');
-			for ($i = $elems->length-1; $i >= 0; $i--) {
-				$e = $elems->item($i);
-				if (!$e->hasChildNodes()) {
-					$e->appendChild($this->body->ownerDocument->createTextNode('[embedded content]'));
+			if ($this->body->tagName === 'iframe') {
+				if (!$this->body->hasChildNodes()) {
+					$this->body->appendChild($this->body->ownerDocument->createTextNode('[embedded content]'));
+				}
+			} else {
+				$elems = $this->body->getElementsByTagName('iframe');
+				for ($i = $elems->length-1; $i >= 0; $i--) {
+					$e = $elems->item($i);
+					if (!$e->hasChildNodes()) {
+						$e->appendChild($this->body->ownerDocument->createTextNode('[embedded content]'));
+					}
 				}
 			}
 			// remove image lazy loading - WordPress plugin http://wordpress.org/extend/plugins/lazy-load/
@@ -789,6 +795,24 @@ class ContentExtractor
 					// Use data-lazy-src as src value
 					$e->setAttribute('src', $e->getAttribute('data-lazy-src'));
 					$e->removeAttribute('data-lazy-src');
+				}
+			}
+			// now let's deal with another lazy load technique. Example:
+			// <img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" class="lazyload" 
+			// data-src="http://i68.tinypic.com/2jabu8.jpg" alt="Image and video hosting by TinyPic" border="0" />
+			$elems = @$xpath->query("//img[@data-src and contains(@class, 'lazyload') and contains(@src, 'data:image')]", $this->body);
+			for ($i = $elems->length-1; $i >= 0; $i--) {
+				$e = $elems->item($i);
+				$e->setAttribute('src', $e->getAttribute('data-src'));
+				$e->removeAttribute('data-src');
+			}
+			// If there's an og:image, but we have no images in the article, let's place it at the beginning of the article.
+			if ($this->body->hasChildNodes() && isset($this->opengraph['og:image']) && substr($this->opengraph['og:image'], 0, 4) === 'http') {
+				$elems = @$xpath->query("//img", $this->body);
+				if ($elems->length === 0) {
+					$_new_elem = $this->body->ownerDocument->createDocumentFragment();
+					@$_new_elem->appendXML('<div><img src="'.htmlspecialchars($this->opengraph['og:image']).'" class="ff-og-image-inserted" /></div>');
+					$this->body->insertBefore($_new_elem, $this->body->firstChild);
 				}
 			}
 		
