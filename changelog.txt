@@ -2,6 +2,9 @@ FiveFilters.org: Full-Text RSS
 http://fivefilters.org/content-only/
 CHANGELOG
 ------------------------------------
+3.8.2 (unreleased)
+ - Removed deprecated PHP 7.2 and 7.3 calls
+ 
 3.8.1 (2017-10-31)
  - Bug fix: Systems with old ICU library produced an idn_to_ascii() error
  - Compatibility test file updated to check for DOM extension

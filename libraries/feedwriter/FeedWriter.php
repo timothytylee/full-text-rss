@@ -21,8 +21,8 @@ define('JSONP', 3);
  class FeedWriter
  {
 	 private $self          = null;     // self URL - http://feed2.w3.org/docs/warning/MissingAtomSelfLink.html
-	 private $alternate     = array();  // alternate URL and title
-	 private $related       = array();  // related URL and title	 
+	 private $alternate     = null;  // alternate URL and title
+	 private $related       = null;  // related URL and title	 
 	 private $hubs          = array();  // PubSubHubbub hubs
 	 private $channels      = array();  // Collection of channel elements
 	 private $items         = array();  // Collection of items as object of FeedItem class.

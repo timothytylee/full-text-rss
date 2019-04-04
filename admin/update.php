@@ -147,7 +147,7 @@ if (!is_object($latest_info_json)) {
 }
 $ff_version = $latest_info_json->pushed_at;
 if ($version == $ff_version) {
-	die('Your site config files are up to date! If you have trouble extracting from a particular site, please email us: help@fivefilters.org');
+	die('Your site config files are up to date!');
 } else {
 	println("Updated site patterns are available (version $ff_version)...");
 }

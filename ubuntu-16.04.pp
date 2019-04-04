@@ -1,4 +1,6 @@
-# Puppet file intended to install server componenets for FiveFilters.org web services
+# Puppet file intended to install server componenets for FiveFilters.org web services.
+# This file should only be run once when setting up a new server to run Full-Text RSS.
+# See http://help.fivefilters.org/customer/portal/articles/1143210-hosting for more information.
 # This file is intended for base images of:
 # Ubuntu 16.04
 
@@ -164,8 +166,8 @@ class php_pecl_http {
 		ensure => present,
 		#owner => root, group => root, mode => 444,
 		content => "; priority=25
-extension=raphf.so
-extension=propro.so
+;extension=raphf.so
+;extension=propro.so
 extension=http.so",
 		before => [Exec["install-http-pecl"], Exec["enable-http"]],
 		require => Class["php"]

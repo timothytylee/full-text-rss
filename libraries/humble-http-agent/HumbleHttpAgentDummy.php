@@ -71,10 +71,10 @@ class HumbleHttpAgentDummy
 	
 	public function validateUrl($url) {
 		$url = filter_var($url, FILTER_SANITIZE_URL);
-		$test = filter_var($url, FILTER_VALIDATE_URL, FILTER_FLAG_SCHEME_REQUIRED);
+		$test = filter_var($url, FILTER_VALIDATE_URL);
 		// deal with bug http://bugs.php.net/51192 (present in PHP 5.2.13 and PHP 5.3.2)
 		if ($test === false) {
-			$test = filter_var(strtr($url, '-', '_'), FILTER_VALIDATE_URL, FILTER_FLAG_SCHEME_REQUIRED);
+			$test = filter_var(strtr($url, '-', '_'), FILTER_VALIDATE_URL);
 		}
 		if ($test !== false && $test !== null && preg_match('!^https?://!', $url)) {
 			return $url;
