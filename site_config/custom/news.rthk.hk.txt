@@ -5,4 +5,15 @@ strip: //div[@class='itemSocialSharing']
 strip: //li[not(a)]
 strip: //img[@class='loadingImg']
 strip: //a[contains(@class,'unslider-arrow')]
+strip_attr: //a/@name
+strip_attr: //a/@title
+strip_attr: //img/@alt
+strip_attr: //img/@onload
+strip_attr: //img/@onerror
 replace_regex(<!-- videoThumbnail&colon; (.*) -->): <img src="$1">
+replace_regex(<!-- Plugins&colon; .* -->):
+replace_regex(<!-- K2 Plugins&colon; .* -->):
+replace_regex(<!-- added K2.* -->):
+replace_regex(<!--width.*; -->):
+replace_string(<!-- Item Image -->):
+replace_string(<!-- Item text -->):
