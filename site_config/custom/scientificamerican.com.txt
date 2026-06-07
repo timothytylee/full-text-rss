@@ -1,0 +1,8 @@
+strip: //a[contains(@class,'google_cta')]
+strip: //span[contains(@class,'google_cta')]
+strip: //*[contains(@class,'subscriptionPlea')]
+strip_attr: //p/@class
+strip_attr: //p/@data-block
+strip_attr: //h2/@id
+strip_attr: //h2/@data-block
+replace_regex(<hr\/><h2>.*<hr\/>):
